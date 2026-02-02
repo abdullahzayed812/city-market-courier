@@ -1,0 +1,49 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "Something went wrong",
+        "retry": "Retry",
+        "save": "Save",
+        "cancel": "Cancel",
+        "logout": "Logout",
+        "login": "Login"
+    },
+    "auth": {
+        "email": "Email",
+        "password": "Password",
+        "login_button": "Login",
+        "forgot_password": "Forgot Password?"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "online": "Online",
+        "offline": "Offline",
+        "active_deliveries": "Active Deliveries",
+        "today_earnings": "Today's Earnings",
+        "view_all": "View All"
+    },
+    "deliveries": {
+        "title": "Deliveries",
+        "pickup": "Pickup",
+        "delivery": "Delivery",
+        "status": "Status",
+        "picked_up": "Picked Up",
+        "on_the_way": "On the Way",
+        "delivered": "Delivered",
+        "details": "Delivery Details",
+        "customer": "Customer",
+        "address": "Address"
+    },
+    "earnings": {
+        "title": "Earnings",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "history": "Delivery History"
+    },
+    "profile": {
+        "title": "Profile",
+        "vehicle": "Vehicle Type",
+        "availability": "Availability",
+        "language": "Language"
+    }
+}
