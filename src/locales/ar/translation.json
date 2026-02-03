@@ -1,49 +1,49 @@
 {
-    "common": {
-        "loading": "جاري التحميل...",
-        "error": "حدث خطأ ما",
-        "retry": "إعادة المحاولة",
-        "save": "حفظ",
-        "cancel": "إلغاء",
-        "logout": "تسجيل الخروج",
-        "login": "تسجيل الدخول"
-    },
-    "auth": {
-        "email": "البريد الإلكتروني",
-        "password": "كلمة المرور",
-        "login_button": "تسجيل الدخول",
-        "forgot_password": "نسيت كلمة المرور؟"
-    },
-    "dashboard": {
-        "title": "لوحة التحكم",
-        "online": "متصل",
-        "offline": "غير متصل",
-        "active_deliveries": "الطلبات النشطة",
-        "today_earnings": "أرباح اليوم",
-        "view_all": "عرض الكل"
-    },
-    "deliveries": {
-        "title": "الطلبات",
-        "pickup": "استلام",
-        "delivery": "توصيل",
-        "status": "الحالة",
-        "picked_up": "تم الاستلام",
-        "on_the_way": "في الطريق",
-        "delivered": "تم التوصيل",
-        "details": "تفاصيل الطلب",
-        "customer": "العميل",
-        "address": "العنوان"
-    },
-    "earnings": {
-        "title": "الأرباح",
-        "daily": "يومي",
-        "weekly": "أسبوعي",
-        "history": "سجل الطلبات"
-    },
-    "profile": {
-        "title": "الملف الشخصي",
-        "vehicle": "نوع المركبة",
-        "availability": "الحالة",
-        "language": "اللغة"
-    }
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ ما",
+    "retry": "إعادة المحاولة",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "logout": "تسجيل الخروج",
+    "login": "تسجيل الدخول"
+  },
+  "auth": {
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "login_button": "تسجيل الدخول",
+    "forgot_password": "نسيت كلمة المرور؟"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "online": "متصل",
+    "offline": "غير متصل",
+    "active_deliveries": "الطلبات النشطة",
+    "today_earnings": "أرباح اليوم",
+    "view_all": "عرض الكل"
+  },
+  "deliveries": {
+    "title": "الطلبات",
+    "pickup": "استلام",
+    "delivery": "توصيل",
+    "status": "الحالة",
+    "picked_up": "تم الاستلام",
+    "on_the_way": "في الطريق",
+    "delivered": "تم التوصيل",
+    "details": "تفاصيل الطلب",
+    "customer": "العميل",
+    "address": "العنوان"
+  },
+  "earnings": {
+    "title": "الأرباح",
+    "daily": "يومي",
+    "weekly": "أسبوعي",
+    "history": "سجل الطلبات"
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "vehicle": "نوع المركبة",
+    "availability": "الحالة",
+    "language": "اللغة"
+  }
 }

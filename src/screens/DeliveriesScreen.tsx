@@ -6,11 +6,12 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { DeliveryService } from '../services/api/deliveryService';
+import { useSocket } from '../app/SocketContext';
 
 const DeliveriesScreen = () => {
   const { t } = useTranslation();
@@ -21,26 +22,47 @@ const DeliveriesScreen = () => {
     queryFn: DeliveryService.getMyDeliveries,
   });
 
-  const { data: pendingDeliveries, isLoading: pendingLoading } = useQuery({
-    queryKey: ['pendingDeliveries'],
-    queryFn: DeliveryService.getPendingDeliveries,
-  });
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for new assignments or status updates
+    const events = ['COURIER_ASSIGNED', 'ORDER_READY'];
+    // ORDER_READY might be relevant if they have a 'pending pool' view, 
+    // but definitely COURIER_ASSIGNED is for "My Deliveries"
+
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
+      // queryClient.invalidateQueries({ queryKey: ['pendingDeliveries'] });
+    };
+
+    events.forEach(event => socket.on(event, handleUpdate));
+
+    return () => {
+      events.forEach(event => socket.off(event, handleUpdate));
+    };
+  }, [socket, queryClient]);
+
+  // const { data: pendingDeliveries, isLoading: pendingLoading } = useQuery({
+  //   queryKey: ['pendingDeliveries'],
+  //   queryFn: DeliveryService.getPendingDeliveries,
+  // });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       DeliveryService.updateStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
-      queryClient.invalidateQueries({ queryKey: ['pendingDeliveries'] });
+      // queryClient.invalidateQueries({ queryKey: ['pendingDeliveries'] });
     },
   });
 
   const handleUpdateStatus = (id: string, currentStatus: string) => {
-    // status ENUM('PENDING', 'ASSIGNED', 'PICKED_UP', 'DELIVERED', 'FAILED') DEFAULT 'PENDING',
     let nextStatus = '';
-    if (currentStatus === 'assigned') nextStatus = 'picked_up';
-    else if (currentStatus === 'picked_up') nextStatus = 'in_transit';
-    else if (currentStatus === 'in_transit') nextStatus = 'delivered';
+    if (currentStatus === 'ASSIGNED') nextStatus = 'PICKED_UP';
+    else if (currentStatus === 'PICKED_UP') nextStatus = 'ON_THE_WAY';
+    else if (currentStatus === 'ON_THE_WAY') nextStatus = 'DELIVERED';
 
     if (nextStatus) {
       statusMutation.mutate({ id, status: nextStatus });
@@ -73,7 +95,7 @@ const DeliveriesScreen = () => {
 
       <TouchableOpacity
         style={styles.actionButton}
-        onPress={() => handleUpdateStatus(item.id, item.status.toLowerCase())}
+        onPress={() => handleUpdateStatus(item.id, item.status)}
         disabled={statusMutation.isPending}
       >
         <Text style={styles.actionButtonText}>
@@ -83,7 +105,7 @@ const DeliveriesScreen = () => {
     </View>
   );
 
-  if (myLoading || pendingLoading) {
+  if (myLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -94,7 +116,7 @@ const DeliveriesScreen = () => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={[...(myDeliveries || []), ...(pendingDeliveries || [])]}
+        data={[...(myDeliveries || [])]}
         renderItem={renderDeliveryItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
@@ -107,14 +129,16 @@ const DeliveriesScreen = () => {
 };
 
 const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'pending':
+  switch (status) {
+    case 'PENDING':
       return '#FF9500';
-    case 'picked_up':
+    case 'PICKED_UP':
       return '#5856D6';
-    case 'in_transit':
+    case 'ON_THE_WAY':
       return '#007AFF';
-    case 'delivered':
+    case 'ASSIGNED': // Added for completeness, usually mapped to in progress or similar
+      return '#007AFF';
+    case 'DELIVERED':
       return '#34C759';
     default:
       return '#8E8E93';
@@ -122,12 +146,12 @@ const getStatusColor = (status: string) => {
 };
 
 const getNextStatusLabel = (status: string, t: any) => {
-  switch (status.toLowerCase()) {
-    case 'pending':
+  switch (status) {
+    case 'ASSIGNED':
       return t('deliveries.picked_up');
-    case 'picked_up':
+    case 'PICKED_UP':
       return t('deliveries.on_the_way');
-    case 'in_transit':
+    case 'ON_THE_WAY':
       return t('deliveries.delivered');
     default:
       return t('common.save');

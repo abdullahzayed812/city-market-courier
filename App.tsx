@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { APIProvider } from './src/app/APIProvider';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/app/AuthContext';
+import { SocketProvider } from './src/app/SocketContext';
 import './src/locales/i18n';
 
 const App = () => {
@@ -10,7 +11,9 @@ const App = () => {
     <SafeAreaProvider>
       <AuthProvider>
         <APIProvider>
-          <RootNavigator />
+          <SocketProvider>
+            <RootNavigator />
+          </SocketProvider>
         </APIProvider>
       </AuthProvider>
     </SafeAreaProvider>
