@@ -5,7 +5,8 @@ import { useAuth } from './AuthContext';
 // IMPORTANT: For Android Emulator, use 10.0.2.2 instead of localhost
 // For physical device, use your machine's IP address
 // We should probably rely on an ENV var or a config file
-const SOCKET_URL = 'http://10.0.2.2:3009';
+// const SOCKET_URL = 'http://10.0.2.2:3009';
+const SOCKET_URL = 'http://192.168.0.128:3009';
 
 interface SocketContextType {
   socket: Socket | null;

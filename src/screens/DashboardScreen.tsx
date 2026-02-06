@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DeliveryService } from '../services/api/deliveryService';
+import { useSocket } from '../app/SocketContext';
 
 const DashboardScreen = () => {
   const { t } = useTranslation();
@@ -25,6 +26,27 @@ const DashboardScreen = () => {
     queryKey: ['activeDeliveries'],
     queryFn: DeliveryService.getMyDeliveries,
   });
+
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for new assignments or status updates
+    const events = ['COURIER_ASSIGNED'];
+    // ORDER_READY might be relevant if they have a 'pending pool' view,
+    // but definitely COURIER_ASSIGNED is for "My Deliveries"
+
+    const handleUpdate = () => {
+      // queryClient.invalidateQueries({ queryKey: ['pendingDeliveries'] });
+    };
+
+    events.forEach(event => socket.on(event, handleUpdate));
+
+    return () => {
+      events.forEach(event => socket.off(event, handleUpdate));
+    };
+  }, [socket, queryClient]);
 
   const availabilityMutation = useMutation({
     mutationFn: ({ id, available }: { id: string; available: boolean }) =>

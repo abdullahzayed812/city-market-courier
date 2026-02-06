@@ -28,8 +28,8 @@ const DeliveriesScreen = () => {
     if (!socket) return;
 
     // Listen for new assignments or status updates
-    const events = ['COURIER_ASSIGNED', 'ORDER_READY'];
-    // ORDER_READY might be relevant if they have a 'pending pool' view, 
+    const events = ['COURIER_ASSIGNED'];
+    // ORDER_READY might be relevant if they have a 'pending pool' view,
     // but definitely COURIER_ASSIGNED is for "My Deliveries"
 
     const handleUpdate = () => {
@@ -54,6 +54,7 @@ const DeliveriesScreen = () => {
       DeliveryService.updateStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
       // queryClient.invalidateQueries({ queryKey: ['pendingDeliveries'] });
     },
   });
