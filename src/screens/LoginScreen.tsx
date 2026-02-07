@@ -6,11 +6,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
+  StatusBar,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Mail, Lock, Truck, ChevronRight } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthService } from '../services/api/authService';
 import { useAuth } from '../app/AuthContext';
+import { theme } from '../theme';
 
 const LoginScreen = () => {
   const { t } = useTranslation();
@@ -21,93 +28,176 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert(t('common.error'), t('auth.fill_all_fields'));
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: 'Please fill all fields',
+        position: 'top',
+      });
       return;
     }
 
     setLoading(true);
     try {
       const data = await AuthService.login({ email, password });
-
       await signIn(data.accessToken, data.refreshToken);
+      Toast.show({
+        type: 'success',
+        text1: 'Login Successful',
+        text2: 'Welcome back, Courier!',
+        position: 'top',
+      });
     } catch (error) {
-      Alert.alert(t('common.error'), t('auth.login_failed'));
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: 'Login failed. Please check your credentials.',
+        position: 'top',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('auth.login_button')}</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.email')}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.password')}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleLogin}
-        disabled={loading}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>{t('common.login')}</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <View style={styles.logoPlaceholder}>
+              <Truck size={40} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.title}>{t('auth.login_title') || 'Courier Login'}</Text>
+            <Text style={styles.subtitle}>Enter your credentials to access your routes</Text>
+          </View>
+
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIcon}>
+                <Mail size={20} color={theme.colors.textMuted} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder={t('auth.email')}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIcon}>
+                <Lock size={20} color={theme.colors.textMuted} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder={t('auth.password')}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholderTextColor={theme.colors.textMuted}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={theme.colors.white} />
+              ) : (
+                <>
+                  <Text style={styles.buttonText}>{t('common.login')}</Text>
+                  <ChevronRight size={20} color={theme.colors.white} style={{ marginLeft: 8 }} />
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.white },
   container: {
-    flex: 1,
+    padding: 30,
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
-    color: '#333',
+  header: {
+    alignItems: 'center',
+    marginBottom: 50,
   },
-  input: {
-    height: 55,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    height: 55,
-    borderRadius: 8,
+  logoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginBottom: 20,
+    ...theme.shadows.soft,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.primary,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  form: {
+    width: '100%',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radius.md,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputIcon: {
+    paddingHorizontal: 15,
+  },
+  input: {
+    flex: 1,
+    height: 60,
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  button: {
+    backgroundColor: theme.colors.primary,
+    height: 60,
+    borderRadius: theme.radius.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    ...theme.shadows.medium,
+  },
+  disabledButton: {
+    backgroundColor: theme.colors.secondary,
+    opacity: 0.7,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: theme.typography.weights.bold,
   },
 });
 

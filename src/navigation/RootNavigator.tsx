@@ -11,13 +11,15 @@ import {
   User,
   ChevronLeft,
 } from 'lucide-react-native';
-import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { theme } from '../theme';
 
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import DeliveriesScreen from '../screens/DeliveriesScreen';
 import EarningsScreen from '../screens/EarningsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import SplashScreen from '../screens/SplashScreen';
 
 import { useAuth } from '../app/AuthContext';
 
@@ -31,8 +33,24 @@ const MainTabNavigator = () => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: theme.colors.white,
+          borderTopWidth: 0,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+          paddingTop: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
       }}
     >
       <Tab.Screen
@@ -77,14 +95,17 @@ const MainTabNavigator = () => {
 
 const RootNavigator = () => {
   const { userToken, isLoading } = useAuth();
+  const [showSplash, setShowSplash] = React.useState(true);
 
-  if (isLoading) {
-    return (
-      // eslint-disable-next-line react-native/no-inline-styles
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash || isLoading) {
+    return <SplashScreen />;
   }
 
   return (
@@ -98,16 +119,16 @@ const RootNavigator = () => {
                 onPress={() => navigation.goBack()}
                 style={{ marginLeft: 10 }}
               >
-                <ChevronLeft color="#000" size={24} />
+                <ChevronLeft color={theme.colors.primary} size={24} />
               </TouchableOpacity>
             ) : null,
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerTitleStyle: { fontWeight: 'bold', color: theme.colors.primary },
         })}
       >
         {userToken == null ? (
           <Stack.Screen
             name="Auth"
-            component={LoginScreen}
+            component={LoginStack}
             options={{ headerShown: false }}
           />
         ) : (
@@ -119,6 +140,14 @@ const RootNavigator = () => {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+  );
+};
+
+const LoginStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+    </Stack.Navigator>
   );
 };
 

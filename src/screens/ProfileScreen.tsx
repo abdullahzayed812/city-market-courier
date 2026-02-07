@@ -6,12 +6,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   I18nManager,
-  Alert,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import { Truck, Globe, LogOut, ChevronRight, User, Phone, Shield, Bell } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import { DeliveryService } from '../services/api/deliveryService';
 import { useAuth } from '../app/AuthContext';
+import { theme } from '../theme';
 
 const ProfileScreen = () => {
   const { t, i18n } = useTranslation();
@@ -25,8 +30,18 @@ const ProfileScreen = () => {
   const handleLogout = async () => {
     try {
       signOut();
+      Toast.show({
+        type: 'info',
+        text1: 'Logged Out',
+        text2: 'See you soon!',
+        position: 'top',
+      });
     } catch (error) {
-      Alert.alert(t('common.error'), 'Logout failed');
+      Toast.show({
+        type: 'error',
+        text1: 'Logout Failed',
+        position: 'top',
+      });
     }
   };
 
@@ -36,118 +51,206 @@ const ProfileScreen = () => {
 
     if (I18nManager.isRTL !== isRTL) {
       I18nManager.forceRTL(isRTL);
-      // In a real app, you might need to restart the app here
-      // For now, we just change the language in i18n
+      Toast.show({
+        type: 'info',
+        text1: 'Language Changed',
+        text2: 'Please restart the app to apply changes fully.',
+        position: 'top',
+        autoHide: false,
+      });
     }
 
     await i18n.changeLanguage(newLang);
-    Alert.alert(
-      'Language Changed',
-      'Please restart the app to apply RTL/LTR changes fully.',
-    );
   };
+
+  const ProfileMenuItem = ({ icon: Icon, label, value, onPress, isLast = false, color = theme.colors.primary }: any) => (
+    <TouchableOpacity
+      style={[styles.menuItem, isLast && { borderBottomWidth: 0 }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.menuIconContainer, { backgroundColor: color + '10' }]}>
+        <Icon size={20} color={color} />
+      </View>
+      <View style={styles.menuContent}>
+        <Text style={styles.menuLabel}>{label}</Text>
+        {value && <Text style={styles.menuValueText}>{value}</Text>}
+      </View>
+      <ChevronRight size={20} color={theme.colors.border} />
+    </TouchableOpacity>
+  );
 
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile?.fullName?.charAt(0)}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Profile Header */}
+        <View style={styles.header}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{profile?.fullName?.charAt(0)}</Text>
+            </View>
+            <TouchableOpacity style={styles.editAvatarButton}>
+              <User size={16} color={theme.colors.white} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.nameText}>{profile?.fullName}</Text>
+          <View style={styles.statusBadge}>
+            <View style={[styles.statusDot, { backgroundColor: profile?.isAvailable ? theme.colors.success : theme.colors.error }]} />
+            <Text style={styles.statusBadgeText}>
+              {profile?.isAvailable ? 'Active Now' : 'Duty Off'}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.name}>{profile?.fullName}</Text>
-        <Text style={styles.phone}>{profile?.phone}</Text>
-      </View>
 
-      <View style={styles.section}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>{t('profile.vehicle')}</Text>
-          <Text style={styles.infoValue}>{profile?.vehicleType}</Text>
+        {/* Info Cards */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Vehicle & Account</Text>
+          <View style={styles.menuCard}>
+            <ProfileMenuItem
+              icon={Truck}
+              label="Vehicle Type"
+              value={profile?.vehicleType || 'Not Set'}
+            />
+            <ProfileMenuItem
+              icon={Phone}
+              label="Phone Number"
+              value={profile?.phone}
+              isLast={true}
+            />
+          </View>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>{t('profile.availability')}</Text>
-          <Text
-            style={[
-              styles.infoValue,
-              { color: profile?.isAvailable ? '#34C759' : '#FF3B30' },
-            ]}
-          >
-            {profile?.isAvailable
-              ? t('dashboard.online')
-              : t('dashboard.offline')}
-          </Text>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>App Settings</Text>
+          <View style={styles.menuCard}>
+            <ProfileMenuItem
+              icon={Globe}
+              label="App Language"
+              value={i18n.language === 'ar' ? 'العربية' : 'English'}
+              onPress={toggleLanguage}
+            />
+            <ProfileMenuItem
+              icon={Bell}
+              label="Notifications"
+              value="Enabled"
+            />
+            <ProfileMenuItem
+              icon={Shield}
+              label="Privacy Policy"
+              isLast={true}
+            />
+          </View>
         </View>
-      </View>
 
-      <TouchableOpacity style={styles.menuItem} onPress={toggleLanguage}>
-        <Text style={styles.menuItemText}>{t('profile.language')}</Text>
-        <Text style={styles.langValue}>
-          {i18n.language === 'ar' ? 'العربية' : 'English'}
-        </Text>
-      </TouchableOpacity>
+        {/* Logout */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <View style={[styles.menuIconContainer, { backgroundColor: theme.colors.error + '10' }]}>
+            <LogOut size={20} color={theme.colors.error} />
+          </View>
+          <Text style={styles.logoutText}>{t('common.logout')}</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.menuItem, styles.logoutItem]}
-        onPress={handleLogout}
-      >
-        <Text style={[styles.menuItemText, styles.logoutText]}>
-          {t('common.logout')}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <View style={styles.footer}>
+          <Text style={styles.versionText}>City market Courier v1.0.0</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  profileHeader: {
-    backgroundColor: '#fff',
+  safeArea: { flex: 1, backgroundColor: theme.colors.white },
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
+  header: {
+    backgroundColor: theme.colors.white,
     padding: 30,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    ...theme.shadows.soft,
   },
+  avatarContainer: { position: 'relative', marginBottom: 15 },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#007AFF',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
   },
-  avatarText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
-  name: { fontSize: 22, fontWeight: 'bold', color: '#000' },
-  phone: { fontSize: 14, color: '#8E8E93', marginTop: 5 },
-  section: { backgroundColor: '#fff', marginTop: 20, paddingHorizontal: 15 },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  infoLabel: { fontSize: 16, color: '#3C3C43' },
-  infoValue: { fontSize: 16, fontWeight: '600' },
-  menuItem: {
-    backgroundColor: '#fff',
-    marginTop: 20,
-    padding: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  avatarText: { color: theme.colors.white, fontSize: 40, fontWeight: 'bold' },
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: theme.colors.secondary,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: theme.colors.white,
   },
-  menuItemText: { fontSize: 16, color: '#000' },
-  langValue: { color: '#007AFF', fontWeight: '600' },
-  logoutItem: { marginTop: 40, justifyContent: 'center' },
-  logoutText: { color: '#FF3B30', fontWeight: 'bold' },
+  nameText: { fontSize: 24, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 8 },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.full,
+  },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  statusBadgeText: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted },
+  section: { padding: theme.spacing.lg, paddingTop: 10 },
+  sectionTitle: { fontSize: 13, fontWeight: 'bold', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginLeft: 4 },
+  menuCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.xl,
+    paddingVertical: 10,
+    ...theme.shadows.soft,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.background,
+  },
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  menuContent: { flex: 1 },
+  menuLabel: { fontSize: 16, color: theme.colors.primary, fontWeight: '500' },
+  menuValueText: { fontSize: 12, color: theme.colors.textMuted, marginTop: 2 },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    margin: theme.spacing.lg,
+    padding: 15,
+    borderRadius: theme.radius.xl,
+    ...theme.shadows.soft,
+  },
+  logoutText: { fontSize: 16, fontWeight: 'bold', color: theme.colors.error },
+  footer: { padding: 30, alignItems: 'center' },
+  versionText: { fontSize: 12, color: theme.colors.textMuted },
 });
 
 export default ProfileScreen;

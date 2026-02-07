@@ -5,6 +5,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/app/AuthContext';
 import { SocketProvider } from './src/app/SocketContext';
 import './src/locales/i18n';
+import Toast from 'react-native-toast-message';
 
 const App = () => {
   return (
@@ -13,6 +14,7 @@ const App = () => {
         <APIProvider>
           <SocketProvider>
             <RootNavigator />
+            <Toast />
           </SocketProvider>
         </APIProvider>
       </AuthProvider>
