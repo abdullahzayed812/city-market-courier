@@ -36,7 +36,7 @@ const DashboardScreen = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const events = ['COURIER_ASSIGNED', 'ORDER_READY'];
+    const events = ['COURIER_ASSIGNED'];
     const handleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
     };
