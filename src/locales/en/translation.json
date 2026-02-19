@@ -6,7 +6,10 @@
         "save": "Save",
         "cancel": "Cancel",
         "logout": "Logout",
-        "login": "Login"
+        "login": "Login",
+        "ok": "OK",
+        "restart_app": "Please restart the app to apply changes fully.",
+        "language_changed": "Language Changed"
     },
     "auth": {
         "email": "Email",
@@ -44,6 +47,15 @@
         "title": "Profile",
         "vehicle": "Vehicle Type",
         "availability": "Availability",
-        "language": "Language"
+        "language": "Language",
+        "active_now": "Active Now",
+        "duty_off": "Duty Off",
+        "vehicle_and_account": "Vehicle & Account",
+        "phone_number": "Phone Number",
+        "app_settings": "App Settings",
+        "notifications": "Notifications",
+        "privacy_policy": "Privacy Policy",
+        "enabled": "Enabled",
+        "not_set": "Not Set"
     }
 }

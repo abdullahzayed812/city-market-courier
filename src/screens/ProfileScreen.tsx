@@ -51,10 +51,11 @@ const ProfileScreen = () => {
 
     if (I18nManager.isRTL !== isRTL) {
       I18nManager.forceRTL(isRTL);
+      I18nManager.forceRTL(isRTL);
       Toast.show({
         type: 'info',
-        text1: 'Language Changed',
-        text2: 'Please restart the app to apply changes fully.',
+        text1: t('common.language_changed'),
+        text2: t('common.restart_app'),
         position: 'top',
         autoHide: false,
       });
@@ -106,23 +107,23 @@ const ProfileScreen = () => {
           <View style={styles.statusBadge}>
             <View style={[styles.statusDot, { backgroundColor: profile?.isAvailable ? theme.colors.success : theme.colors.error }]} />
             <Text style={styles.statusBadgeText}>
-              {profile?.isAvailable ? 'Active Now' : 'Duty Off'}
+              {profile?.isAvailable ? t('profile.active_now') : t('profile.duty_off')}
             </Text>
           </View>
         </View>
 
         {/* Info Cards */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vehicle & Account</Text>
+          <Text style={styles.sectionTitle}>{t('profile.vehicle_and_account')}</Text>
           <View style={styles.menuCard}>
             <ProfileMenuItem
               icon={Truck}
-              label="Vehicle Type"
-              value={profile?.vehicleType || 'Not Set'}
+              label={t('profile.vehicle')}
+              value={profile?.vehicleType || t('profile.not_set')}
             />
             <ProfileMenuItem
               icon={Phone}
-              label="Phone Number"
+              label={t('profile.phone_number')}
               value={profile?.phone}
               isLast={true}
             />
@@ -130,22 +131,22 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Settings</Text>
+          <Text style={styles.sectionTitle}>{t('profile.app_settings')}</Text>
           <View style={styles.menuCard}>
             <ProfileMenuItem
               icon={Globe}
-              label="App Language"
+              label={t('profile.language')}
               value={i18n.language === 'ar' ? 'العربية' : 'English'}
               onPress={toggleLanguage}
             />
             <ProfileMenuItem
               icon={Bell}
-              label="Notifications"
-              value="Enabled"
+              label={t('profile.notifications')}
+              value={t('profile.enabled')}
             />
             <ProfileMenuItem
               icon={Shield}
-              label="Privacy Policy"
+              label={t('profile.privacy_policy')}
               isLast={true}
             />
           </View>

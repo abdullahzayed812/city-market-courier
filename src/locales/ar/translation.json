@@ -6,7 +6,10 @@
     "save": "حفظ",
     "cancel": "إلغاء",
     "logout": "تسجيل الخروج",
-    "login": "تسجيل الدخول"
+    "login": "تسجيل الدخول",
+    "ok": "تم",
+    "restart_app": "يرجى إعادة تشغيل التطبيق لتطبيق التغييرات بالكامل.",
+    "language_changed": "تم تغيير اللغة"
   },
   "auth": {
     "email": "البريد الإلكتروني",
@@ -44,6 +47,15 @@
     "title": "الملف الشخصي",
     "vehicle": "نوع المركبة",
     "availability": "الحالة",
-    "language": "اللغة"
+    "language": "اللغة",
+    "active_now": "نشط الآن",
+    "duty_off": "خارج الخدمة",
+    "vehicle_and_account": "المركبة والحساب",
+    "phone_number": "رقم الهاتف",
+    "app_settings": "إعدادات التطبيق",
+    "notifications": "التنبيهات",
+    "privacy_policy": "سياسة الخصوصية",
+    "enabled": "مفعل",
+    "not_set": "غير محدد"
   }
 }

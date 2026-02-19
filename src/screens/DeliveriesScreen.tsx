@@ -15,12 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
 import { useSocket } from '../app/SocketContext';
 import { theme } from '../theme';
+import { Delivery, DeliveryStatus, EventType } from '@city-market/shared'; // Import shared types
 
 const DeliveriesScreen = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const { data: myDeliveries, isLoading: myLoading } = useQuery({
+  const { data: myDeliveries, isLoading: myLoading } = useQuery<Delivery[] | undefined>({ // Use Delivery[]
     queryKey: ['myDeliveries'],
     queryFn: DeliveryService.getMyDeliveries,
   });
@@ -30,7 +31,7 @@ const DeliveriesScreen = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const events = ['COURIER_ASSIGNED'];
+    const events = [EventType.COURIER_ASSIGNED];
     const handleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
     };
@@ -43,45 +44,45 @@ const DeliveriesScreen = () => {
   }, [socket, queryClient]);
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      DeliveryService.updateStatus(id, status),
+    mutationFn: ({ id, status, vendorOrderId }: { id: string; status: DeliveryStatus; vendorOrderId: string }) => // Use DeliveryStatus and vendorOrderId
+      DeliveryService.updateStatus(id, { status, vendorOrderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
       queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
     },
   });
 
-  const handleUpdateStatus = (id: string, currentStatus: string) => {
-    let nextStatus = '';
-    if (currentStatus === 'ASSIGNED') nextStatus = 'PICKED_UP';
-    else if (currentStatus === 'PICKED_UP') nextStatus = 'ON_THE_WAY';
-    else if (currentStatus === 'ON_THE_WAY') nextStatus = 'DELIVERED';
+  const handleUpdateStatus = (id: string, currentStatus: DeliveryStatus, vendorOrderId: string) => { // Use DeliveryStatus
+    let nextStatus: DeliveryStatus | undefined;
+    if (currentStatus === DeliveryStatus.ASSIGNED) nextStatus = DeliveryStatus.PICKED_UP;
+    else if (currentStatus === DeliveryStatus.PICKED_UP) nextStatus = DeliveryStatus.ON_THE_WAY;
+    else if (currentStatus === DeliveryStatus.ON_THE_WAY) nextStatus = DeliveryStatus.DELIVERED;
 
     if (nextStatus) {
-      statusMutation.mutate({ id, status: nextStatus });
+      statusMutation.mutate({ id, status: nextStatus, vendorOrderId });
     }
   };
 
-  const getStatusConfig = (status: string) => {
+  const getStatusConfig = (status: DeliveryStatus) => { // Use DeliveryStatus
     switch (status) {
-      case 'ASSIGNED': return { color: theme.colors.primary, label: 'Assigned' };
-      case 'PICKED_UP': return { color: theme.colors.warning, label: 'Picked Up' };
-      case 'ON_THE_WAY': return { color: theme.colors.info, label: 'On The Way' };
-      case 'DELIVERED': return { color: theme.colors.success, label: 'Delivered' };
+      case DeliveryStatus.ASSIGNED: return { color: theme.colors.primary, label: 'Assigned' };
+      case DeliveryStatus.PICKED_UP: return { color: theme.colors.warning, label: 'Picked Up' };
+      case DeliveryStatus.ON_THE_WAY: return { color: theme.colors.info, label: 'On The Way' };
+      case DeliveryStatus.DELIVERED: return { color: theme.colors.success, label: 'Delivered' };
       default: return { color: theme.colors.textMuted, label: status };
     }
   };
 
-  const renderDeliveryItem = ({ item }: { item: any }) => {
+  const renderDeliveryItem = ({ item }: { item: Delivery }) => { // Use Delivery
     const statusConfig = getStatusConfig(item.status);
-    const isCompleted = item.status === 'DELIVERED';
+    const isCompleted = item.status === DeliveryStatus.DELIVERED;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.orderIdGroup}>
             <Package size={20} color={theme.colors.primary} />
-            <Text style={styles.orderIdText}>Order #{item.orderId.slice(-6)}</Text>
+            <Text style={styles.orderIdText}>Order #{item.customerOrderId?.slice(-6)}</Text> {/* Use customerOrderId */}
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '15' }]}>
             <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
@@ -98,7 +99,7 @@ const DeliveriesScreen = () => {
             </View>
             <View style={styles.routeInfo}>
               <Text style={styles.routeLabel}>Pickup Location</Text>
-              <Text style={styles.routeText} numberOfLines={2}>{item.pickupAddress}</Text>
+              <Text style={styles.routeText} numberOfLines={2}>{item.pickupLocations[0]?.address}</Text> {/* Use pickupLocations */}
             </View>
           </View>
 
@@ -116,7 +117,7 @@ const DeliveriesScreen = () => {
         {!isCompleted && (
           <TouchableOpacity
             style={[styles.actionButton, statusMutation.isPending && styles.disabledButton]}
-            onPress={() => handleUpdateStatus(item.id, item.status)}
+            onPress={() => handleUpdateStatus(item.id, item.status, item.vendorOrderId || '')} // Pass vendorOrderId
             disabled={statusMutation.isPending}
           >
             {statusMutation.isPending ? (
@@ -179,11 +180,11 @@ const DeliveriesScreen = () => {
   );
 };
 
-const getNextStatusLabel = (status: string, t: any) => {
+const getNextStatusLabel = (status: DeliveryStatus, t: any) => { // Use DeliveryStatus
   switch (status) {
-    case 'ASSIGNED': return 'Confirm Pickup';
-    case 'PICKED_UP': return 'Start Delivery';
-    case 'ON_THE_WAY': return 'Confirm Delivered';
+    case DeliveryStatus.ASSIGNED: return 'Confirm Pickup';
+    case DeliveryStatus.PICKED_UP: return 'Start Delivery';
+    case DeliveryStatus.ON_THE_WAY: return 'Confirm Delivered';
     default: return 'Complete';
   }
 };
