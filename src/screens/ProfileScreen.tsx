@@ -21,6 +21,7 @@ import { theme } from '../theme';
 const ProfileScreen = () => {
   const { t, i18n } = useTranslation();
   const { signOut } = useAuth();
+  const isRTL = i18n.language === 'ar';
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['courierProfile'],
@@ -32,14 +33,14 @@ const ProfileScreen = () => {
       signOut();
       Toast.show({
         type: 'info',
-        text1: 'Logged Out',
-        text2: 'See you soon!',
+        text1: t('common.logged_out'),
+        text2: t('common.see_soon') || t('common.see_you_soon'),
         position: 'top',
       });
     } catch (error) {
       Toast.show({
         type: 'error',
-        text1: 'Logout Failed',
+        text1: t('common.logout_failed'),
         position: 'top',
       });
     }
@@ -50,7 +51,7 @@ const ProfileScreen = () => {
     const isRTL = newLang === 'ar';
 
     if (I18nManager.isRTL !== isRTL) {
-      I18nManager.forceRTL(isRTL);
+      I18nManager.allowRTL(isRTL);
       I18nManager.forceRTL(isRTL);
       Toast.show({
         type: 'info',
@@ -77,7 +78,7 @@ const ProfileScreen = () => {
         <Text style={styles.menuLabel}>{label}</Text>
         {value && <Text style={styles.menuValueText}>{value}</Text>}
       </View>
-      <ChevronRight size={20} color={theme.colors.border} />
+      <ChevronRight size={20} color={theme.colors.border} style={isRTL && { transform: [{ rotate: '180deg' }] }} />
     </TouchableOpacity>
   );
 
@@ -161,7 +162,7 @@ const ProfileScreen = () => {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={styles.versionText}>City market Courier v1.0.0</Text>
+          <Text style={styles.versionText}>{t('profile.version_text', { version: '1.0.0' })}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -212,10 +213,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: theme.radius.full,
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginEnd: 8 },
   statusBadgeText: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted },
   section: { padding: theme.spacing.lg, paddingTop: 10 },
-  sectionTitle: { fontSize: 13, fontWeight: 'bold', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginLeft: 4 },
+  sectionTitle: { fontSize: 13, fontWeight: 'bold', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginStart: 4 },
   menuCard: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.xl,
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginEnd: 15,
   },
   menuContent: { flex: 1 },
   menuLabel: { fontSize: 16, color: theme.colors.primary, fontWeight: '500' },
@@ -249,7 +250,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     ...theme.shadows.soft,
   },
-  logoutText: { fontSize: 16, fontWeight: 'bold', color: theme.colors.error },
+  logoutText: { fontSize: 16, fontWeight: 'bold', color: theme.colors.error, marginStart: 15 },
   footer: { padding: 30, alignItems: 'center' },
   versionText: { fontSize: 12, color: theme.colors.textMuted },
 });

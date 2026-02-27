@@ -20,18 +20,19 @@ import { useAuth } from '../app/AuthContext';
 import { theme } from '../theme';
 
 const LoginScreen = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { signIn } = useAuth();
   const [email, setEmail] = useState('courier@citymarket.com');
   const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
+  const isRTL = i18n.language === 'ar';
 
   const handleLogin = async () => {
     if (!email || !password) {
       Toast.show({
         type: 'error',
         text1: t('common.error'),
-        text2: 'Please fill all fields',
+        text2: t('common.fill_all_fields'),
         position: 'top',
       });
       return;
@@ -43,15 +44,15 @@ const LoginScreen = () => {
       await signIn(data.accessToken, data.refreshToken);
       Toast.show({
         type: 'success',
-        text1: 'Login Successful',
-        text2: 'Welcome back, Courier!',
+        text1: t('auth.login_successful'),
+        text2: t('auth.welcome_back_courier'),
         position: 'top',
       });
     } catch (error) {
       Toast.show({
         type: 'error',
         text1: t('common.error'),
-        text2: 'Login failed. Please check your credentials.',
+        text2: t('auth.login_failed_creds'),
         position: 'top',
       });
     } finally {
@@ -71,8 +72,8 @@ const LoginScreen = () => {
             <View style={styles.logoPlaceholder}>
               <Truck size={40} color={theme.colors.primary} />
             </View>
-            <Text style={styles.title}>{t('auth.login_title') || 'Courier Login'}</Text>
-            <Text style={styles.subtitle}>Enter your credentials to access your routes</Text>
+            <Text style={styles.title}>{t('auth.login_title')}</Text>
+            <Text style={styles.subtitle}>{t('auth.login_subtitle')}</Text>
           </View>
 
           <View style={styles.form}>
@@ -81,7 +82,7 @@ const LoginScreen = () => {
                 <Mail size={20} color={theme.colors.textMuted} />
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
                 placeholder={t('auth.email')}
                 value={email}
                 onChangeText={setEmail}
@@ -96,7 +97,7 @@ const LoginScreen = () => {
                 <Lock size={20} color={theme.colors.textMuted} />
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
                 placeholder={t('auth.password')}
                 value={password}
                 onChangeText={setPassword}
@@ -115,7 +116,7 @@ const LoginScreen = () => {
               ) : (
                 <>
                   <Text style={styles.buttonText}>{t('common.login')}</Text>
-                  <ChevronRight size={20} color={theme.colors.white} style={{ marginLeft: 8 }} />
+                  <ChevronRight size={20} color={theme.colors.white} style={[{ marginStart: 8 }, isRTL && { transform: [{ rotate: '180deg' }] }]} />
                 </>
               )}
             </TouchableOpacity>

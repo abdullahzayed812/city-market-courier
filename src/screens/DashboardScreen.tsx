@@ -11,7 +11,15 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Truck, Navigation, Package, DollarSign, ChevronRight, Activity, MapPin } from 'lucide-react-native';
+import {
+  Truck,
+  Navigation,
+  Package,
+  DollarSign,
+  ChevronRight,
+  Activity,
+  MapPin,
+} from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
 import { useSocket } from '../app/SocketContext';
@@ -30,6 +38,10 @@ const DashboardScreen = () => {
     queryKey: ['activeDeliveries'],
     queryFn: DeliveryService.getMyDeliveries,
   });
+
+  const completedDeliveries =
+    activeDeliveries?.filter((d: any) => d.status === 'DELIVERED') || [];
+  const totalEarnings = completedDeliveries.length * 15.0;
 
   const { socket } = useSocket();
 
@@ -98,17 +110,31 @@ const DashboardScreen = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcomeText}>Welcome Back,</Text>
-            <Text style={styles.nameText}>{profile?.fullName || 'Courier'}</Text>
+            <Text style={styles.welcomeText}>{t('common.welcome_back')}</Text>
+            <Text style={styles.nameText}>
+              {profile?.fullName || 'Courier'}
+            </Text>
           </View>
           <View style={styles.statusBox}>
-            <Text style={[styles.statusLabel, { color: isOnline ? theme.colors.success : theme.colors.textMuted }]}>
-              {isOnline ? 'ONLINE' : 'OFFLINE'}
+            <Text
+              style={[
+                styles.statusLabel,
+                {
+                  color: isOnline
+                    ? theme.colors.success
+                    : theme.colors.textMuted,
+                },
+              ]}
+            >
+              {isOnline ? t('dashboard.online') : t('dashboard.offline')}
             </Text>
             <Switch
               value={isOnline}
               onValueChange={toggleAvailability}
-              trackColor={{ false: theme.colors.border, true: theme.colors.success + '50' }}
+              trackColor={{
+                false: theme.colors.border,
+                true: theme.colors.success + '50',
+              }}
               thumbColor={isOnline ? theme.colors.success : theme.colors.white}
               ios_backgroundColor={theme.colors.border}
             />
@@ -120,13 +146,13 @@ const DashboardScreen = () => {
           <StatCard
             icon={Truck}
             value={activeDeliveries?.length || 0}
-            label="Active Deliveries"
+            label={t('dashboard.active_deliveries')}
             color={theme.colors.primary}
           />
           <StatCard
             icon={DollarSign}
-            value="$0.00"
-            label="Today's Earnings"
+            value={totalEarnings}
+            label={t('dashboard.today_earnings')}
             color={theme.colors.success}
           />
         </View>
@@ -136,7 +162,9 @@ const DashboardScreen = () => {
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <Activity size={20} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>Working Deliveries</Text>
+              <Text style={styles.sectionTitle}>
+                {t('dashboard.working_deliveries')}
+              </Text>
             </View>
             <TouchableOpacity>
               <Text style={styles.viewAllText}>{t('dashboard.view_all')}</Text>
@@ -145,26 +173,52 @@ const DashboardScreen = () => {
 
           {activeDeliveries?.length > 0 ? (
             activeDeliveries.map((delivery: any) => (
-              <TouchableOpacity key={delivery.id} style={styles.deliveryCard} activeOpacity={0.8}>
+              <TouchableOpacity
+                key={delivery.id}
+                style={styles.deliveryCard}
+                activeOpacity={0.8}
+              >
                 <View style={styles.deliveryHeader}>
                   <View style={styles.orderIdBox}>
                     <Package size={16} color={theme.colors.primary} />
-                    <Text style={styles.orderIdText}>#{delivery.orderId.slice(-6)}</Text>
+                    <Text style={styles.orderIdText}>
+                      #{delivery.id.slice(-6)}
+                    </Text>
                   </View>
                   <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>{delivery.status}</Text>
+                    <Text style={styles.statusBadgeText}>
+                      {t(
+                        `deliveries.status_${delivery.status.toLowerCase()}`,
+                        delivery.status,
+                      )}
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.addressSection}>
                   <View style={styles.addressRow}>
                     <View style={styles.dotContainer}>
-                      <View style={[styles.dot, { backgroundColor: theme.colors.warning }]} />
+                      <View
+                        style={[
+                          styles.dot,
+                          { backgroundColor: theme.colors.warning },
+                        ]}
+                      />
                       <View style={styles.connector} />
                     </View>
                     <View style={styles.addressInfo}>
-                      <Text style={styles.addressLabel}>Pickup</Text>
-                      <Text style={styles.addressText} numberOfLines={1}>{delivery.pickupAddress}</Text>
+                      <Text style={styles.addressLabel}>
+                        {t('deliveries.pickup')}
+                      </Text>
+                      {delivery?.pickupLocations?.map(pl => (
+                        <Text
+                          key={pl.id}
+                          style={styles.addressText}
+                          numberOfLines={2}
+                        >
+                          {pl?.address}
+                        </Text>
+                      ))}
                     </View>
                   </View>
 
@@ -173,14 +227,20 @@ const DashboardScreen = () => {
                       <MapPin size={16} color={theme.colors.primary} />
                     </View>
                     <View style={styles.addressInfo}>
-                      <Text style={styles.addressLabel}>Dropoff</Text>
-                      <Text style={styles.addressText} numberOfLines={1}>{delivery.deliveryAddress}</Text>
+                      <Text style={styles.addressLabel}>
+                        {t('deliveries.dropoff')}
+                      </Text>
+                      <Text style={styles.addressText} numberOfLines={1}>
+                        {delivery.deliveryAddress}
+                      </Text>
                     </View>
                   </View>
                 </View>
 
                 <View style={styles.deliveryFooter}>
-                  <Text style={styles.footerInfo}>Estimated Time: 25 mins</Text>
+                  <Text style={styles.footerInfo}>
+                    {t('dashboard.estimated_time', { time: 25 })}
+                  </Text>
                   <ChevronRight size={18} color={theme.colors.border} />
                 </View>
               </TouchableOpacity>
@@ -188,8 +248,12 @@ const DashboardScreen = () => {
           ) : (
             <View style={styles.emptyCard}>
               <Navigation size={40} color={theme.colors.surface} />
-              <Text style={styles.emptyText}>No deliveries assigned yet</Text>
-              <Text style={styles.emptySubText}>Go online to start receiving orders!</Text>
+              <Text style={styles.emptyText}>
+                {t('dashboard.no_deliveries_assigned')}
+              </Text>
+              <Text style={styles.emptySubText}>
+                {t('dashboard.go_online_to_start')}
+              </Text>
             </View>
           )}
         </View>
@@ -203,7 +267,12 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.white },
   container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+  },
   header: {
     padding: theme.spacing.lg,
     paddingTop: 40,
@@ -218,7 +287,12 @@ const styles = StyleSheet.create({
   welcomeText: { fontSize: 14, color: theme.colors.textMuted },
   nameText: { fontSize: 24, fontWeight: 'bold', color: theme.colors.primary },
   statusBox: { alignItems: 'center' },
-  statusLabel: { fontSize: 10, fontWeight: 'bold', marginBottom: 4, letterSpacing: 1 },
+  statusLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    letterSpacing: 1,
+  },
   statsContainer: {
     flexDirection: 'row',
     padding: theme.spacing.lg,
@@ -242,7 +316,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statValue: { fontSize: 22, fontWeight: 'bold', color: theme.colors.primary },
-  statLabel: { fontSize: 12, color: theme.colors.textMuted, marginTop: 4, textAlign: 'center' },
+  statLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   section: { padding: theme.spacing.lg },
   sectionHeader: {
     flexDirection: 'row',
@@ -251,8 +330,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.primary, marginLeft: 8 },
-  viewAllText: { color: theme.colors.secondary, fontWeight: 'bold', fontSize: 14 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+    marginStart: 8,
+  },
+  viewAllText: {
+    color: theme.colors.secondary,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   deliveryCard: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.xl,
@@ -267,21 +355,41 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   orderIdBox: { flexDirection: 'row', alignItems: 'center' },
-  orderIdText: { fontSize: 16, fontWeight: 'bold', color: theme.colors.primary, marginLeft: 6 },
+  orderIdText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+    marginStart: 6,
+  },
   statusBadge: {
     backgroundColor: theme.colors.primary + '10',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: theme.radius.full,
   },
-  statusBadgeText: { color: theme.colors.primary, fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  statusBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
   addressSection: { marginBottom: 20 },
   addressRow: { flexDirection: 'row', marginBottom: 2 },
-  dotContainer: { alignItems: 'center', width: 24, marginRight: 12 },
+  dotContainer: { alignItems: 'center', width: 24, marginEnd: 12 },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
-  connector: { width: 2, flex: 1, backgroundColor: theme.colors.border, marginVertical: 4 },
+  connector: {
+    width: 2,
+    flex: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: 4,
+  },
   addressInfo: { flex: 1, paddingBottom: 15 },
-  addressLabel: { fontSize: 10, color: theme.colors.textMuted, textTransform: 'uppercase', marginBottom: 2 },
+  addressLabel: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
   addressText: { fontSize: 14, color: theme.colors.primary, fontWeight: '500' },
   deliveryFooter: {
     flexDirection: 'row',
@@ -302,8 +410,18 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.background,
     borderStyle: 'dashed',
   },
-  emptyText: { marginTop: 16, fontSize: 16, fontWeight: 'bold', color: theme.colors.primary },
-  emptySubText: { marginTop: 4, fontSize: 14, color: theme.colors.textMuted, textAlign: 'center' },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  emptySubText: {
+    marginTop: 4,
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
 });
 
 export default DashboardScreen;

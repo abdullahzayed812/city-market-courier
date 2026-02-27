@@ -11,7 +11,7 @@ import {
   User,
   ChevronLeft,
 } from 'lucide-react-native';
-import { View, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { TouchableOpacity, Platform } from 'react-native';
 import { theme } from '../theme';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -48,8 +48,8 @@ const MainTabNavigator = () => {
           paddingTop: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 14,
+          fontWeight: 'bold',
         },
       }}
     >

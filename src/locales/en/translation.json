@@ -9,39 +9,76 @@
         "login": "Login",
         "ok": "OK",
         "restart_app": "Please restart the app to apply changes fully.",
-        "language_changed": "Language Changed"
+        "language_changed": "Language Changed",
+        "welcome_back": "Welcome Back,",
+        "date": "Date",
+        "confirm": "Confirm",
+        "accept": "Accept",
+        "reject": "Reject",
+        "filter": "Filter",
+        "logged_out": "Logged Out",
+        "see_you_soon": "See you soon!",
+        "logout_failed": "Logout Failed",
+        "fill_all_fields": "Please fill all fields"
     },
     "auth": {
         "email": "Email",
         "password": "Password",
         "login_button": "Login",
-        "forgot_password": "Forgot Password?"
+        "forgot_password": "Forgot Password?",
+        "login_title": "Courier Login",
+        "login_subtitle": "Enter your credentials to access your routes",
+        "login_successful": "Login Successful",
+        "welcome_back_courier": "Welcome back, Courier!",
+        "login_failed_creds": "Login failed. Please check your credentials."
     },
     "dashboard": {
         "title": "Dashboard",
-        "online": "Online",
-        "offline": "Offline",
+        "online": "ONLINE",
+        "offline": "OFFLINE",
         "active_deliveries": "Active Deliveries",
         "today_earnings": "Today's Earnings",
-        "view_all": "View All"
+        "view_all": "View All",
+        "working_deliveries": "Working Deliveries",
+        "estimated_time": "Estimated Time: {{time}} mins",
+        "no_deliveries_assigned": "No deliveries assigned yet",
+        "go_online_to_start": "Go online to start receiving orders!"
     },
     "deliveries": {
         "title": "Deliveries",
         "pickup": "Pickup",
         "delivery": "Delivery",
+        "dropoff": "Dropoff",
         "status": "Status",
-        "picked_up": "Picked Up",
-        "on_the_way": "On the Way",
-        "delivered": "Delivered",
+        "status_assigned": "Assigned",
+        "status_pending": "Pending",
+        "status_picked_up": "Picked Up",
+        "status_on_the_way": "On the Way",
+        "status_delivered": "Delivered",
+        "status_cancelled": "Cancelled",
         "details": "Delivery Details",
         "customer": "Customer",
-        "address": "Address"
+        "address": "Address",
+        "pickup_location": "Pickup Location",
+        "delivery_destination": "Delivery Destination",
+        "confirm_pickup": "Confirm Pickup",
+        "start_delivery": "Start Delivery",
+        "confirm_delivered": "Confirm Delivered",
+        "complete": "Complete",
+        "delivery_successful": "Delivery Successful",
+        "all_deliveries": "All Deliveries",
+        "no_delivery_history": "No delivery history yet"
     },
     "earnings": {
         "title": "Earnings",
         "daily": "Daily",
         "weekly": "Weekly",
-        "history": "Delivery History"
+        "history": "Delivery History",
+        "total_balance": "Total Balance",
+        "this_week": "This Week",
+        "transactional_history": "Transactional History",
+        "no_earnings_history": "No earnings history found",
+        "complete_deliveries_hint": "Complete deliveries to see your balance grow!"
     },
     "profile": {
         "title": "Profile",
@@ -56,6 +93,7 @@
         "notifications": "Notifications",
         "privacy_policy": "Privacy Policy",
         "enabled": "Enabled",
-        "not_set": "Not Set"
+        "not_set": "Not Set",
+        "version_text": "City Market Courier v{{version}}"
     }
 }

@@ -9,13 +9,28 @@
     "login": "تسجيل الدخول",
     "ok": "تم",
     "restart_app": "يرجى إعادة تشغيل التطبيق لتطبيق التغييرات بالكامل.",
-    "language_changed": "تم تغيير اللغة"
+    "language_changed": "تم تغيير اللغة",
+    "welcome_back": "مرحباً بك مجدداً،",
+    "date": "التاريخ",
+    "confirm": "تأكيد",
+    "accept": "قبول",
+    "reject": "رفض",
+    "filter": "تصفية",
+    "logged_out": "تم تسجيل الخروج",
+    "see_soon": "نراك قريباً!",
+    "logout_failed": "فشل تسجيل الخروج",
+    "fill_all_fields": "يرجى ملء جميع الحقول"
   },
   "auth": {
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "login_button": "تسجيل الدخول",
-    "forgot_password": "نسيت كلمة المرور؟"
+    "forgot_password": "نسيت كلمة المرور؟",
+    "login_title": "دخول المناديب",
+    "login_subtitle": "أدخل بياناتك للوصول إلى مساراتك",
+    "login_successful": "تم تسجيل الدخول بنجاح",
+    "welcome_back_courier": "مرحباً بك مجدداً أيها المندوب!",
+    "login_failed_creds": "فشل تسجيل الدخول. يرجى التحقق من بياناتك."
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -23,25 +38,47 @@
     "offline": "غير متصل",
     "active_deliveries": "الطلبات النشطة",
     "today_earnings": "أرباح اليوم",
-    "view_all": "عرض الكل"
+    "view_all": "عرض الكل",
+    "working_deliveries": "الطلبات الجارية",
+    "estimated_time": "الوقت المتوقع: {{time}} دقيقة",
+    "no_deliveries_assigned": "لا توجد طلبات معينة حالياً",
+    "go_online_to_start": "اتصل بالإنترنت لبدء استقبال الطلبات!"
   },
   "deliveries": {
     "title": "الطلبات",
     "pickup": "استلام",
     "delivery": "توصيل",
+    "dropoff": "تسليم",
     "status": "الحالة",
-    "picked_up": "تم الاستلام",
-    "on_the_way": "في الطريق",
-    "delivered": "تم التوصيل",
+    "status_assigned": "تم التعيين",
+    "status_pending": "قيد الانتظار",
+    "status_picked_up": "تم الاستلام",
+    "status_on_the_way": "في الطريق",
+    "status_delivered": "تم التوصيل",
+    "status_cancelled": "ملغي",
     "details": "تفاصيل الطلب",
     "customer": "العميل",
-    "address": "العنوان"
+    "address": "العنوان",
+    "pickup_location": "موقع الاستلام",
+    "delivery_destination": "وجهة التوصيل",
+    "confirm_pickup": "تأكيد الاستلام",
+    "start_delivery": "بدء التوصيل",
+    "confirm_delivered": "تأكيد التوصيل",
+    "complete": "إكمال",
+    "delivery_successful": "تم التوصيل بنجاح",
+    "all_deliveries": "كافة الطلبات",
+    "no_delivery_history": "لا يوجد سجل طلبات بعد"
   },
   "earnings": {
     "title": "الأرباح",
     "daily": "يومي",
     "weekly": "أسبوعي",
-    "history": "سجل الطلبات"
+    "history": "سجل الطلبات",
+    "total_balance": "إجمالي الرصيد",
+    "this_week": "هذا الأسبوع",
+    "transactional_history": "سجل العمليات",
+    "no_earnings_history": "لا يوجد سجل أرباح بعد",
+    "complete_deliveries_hint": "أكمل الطلبات لترى رصيدك ينمو!"
   },
   "profile": {
     "title": "الملف الشخصي",
@@ -56,6 +93,7 @@
     "notifications": "التنبيهات",
     "privacy_policy": "سياسة الخصوصية",
     "enabled": "مفعل",
-    "not_set": "غير محدد"
+    "not_set": "غير محدد",
+    "version_text": "سيتي ماركت للمناديب v{{version}}"
   }
 }
