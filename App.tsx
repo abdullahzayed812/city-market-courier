@@ -8,6 +8,8 @@ import { I18nManager } from 'react-native';
 import './src/locales/i18n';
 import i18n from './src/locales/i18n';
 import Toast from 'react-native-toast-message';
+import { useNotifications } from './src/hooks/useNotifications';
+import { AppType } from '@city-market/shared';
 
 // Force RTL if current language is Arabic
 const isArabic = i18n.language === 'ar';
@@ -17,13 +19,18 @@ if (isArabic && !I18nManager.isRTL) {
   // Note: RN apps often need a restart here, but setting it early helps
 }
 
+const AppContent = () => {
+  useNotifications(AppType.COURIER);
+  return <RootNavigator />;
+};
+
 const App = () => {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <APIProvider>
           <SocketProvider>
-            <RootNavigator />
+            <AppContent />
             <Toast />
           </SocketProvider>
         </APIProvider>

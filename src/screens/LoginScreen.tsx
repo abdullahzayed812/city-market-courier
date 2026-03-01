@@ -41,7 +41,7 @@ const LoginScreen = () => {
     setLoading(true);
     try {
       const data = await AuthService.login({ email, password });
-      await signIn(data.accessToken, data.refreshToken);
+      await signIn(data.user, data.accessToken, data.refreshToken);
       Toast.show({
         type: 'success',
         text1: t('auth.login_successful'),
