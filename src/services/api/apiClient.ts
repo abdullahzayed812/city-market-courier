@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import i18n from '../../locales/i18n';
 
 // Android emulator uses 10.0.2.2 to access host machine's localhost
 // iOS simulator can use localhost directly
@@ -31,6 +32,9 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    config.headers['Accept-Language'] = i18n.language || 'ar';
+
     return config;
   },
   error => {
