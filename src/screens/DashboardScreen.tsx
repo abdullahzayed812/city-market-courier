@@ -1,87 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Switch,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  StatusBar,
+  Switch,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  Bike,
+  Package,
+  MapPin,
+  ChevronRight,
+  User,
+  Star,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Truck,
-  Navigation,
-  Package,
-  DollarSign,
-  ChevronRight,
-  Activity,
-  MapPin,
-} from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { DeliveryService } from '../services/api/deliveryService';
-import { useSocket } from '../app/SocketContext';
-import { theme } from '../theme';
 
-const DashboardScreen = () => {
+import { DeliveryService } from '../services/api/deliveryService';
+import { useAuth } from '../app/AuthContext';
+import { theme } from '../theme';
+import { useSocket } from '../app/SocketContext';
+import { EventType, DeliveryStatus } from '@city-market/shared';
+
+const DashboardScreen = ({ navigation }: any) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { socket } = useSocket();
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['courierProfile'],
-    queryFn: DeliveryService.getProfile,
+    queryFn: () => DeliveryService.getProfile(),
   });
 
-  const { data: activeDeliveries, isLoading: deliveriesLoading } = useQuery({
+  const {
+    data: activeDeliveries,
+    isLoading: deliveriesLoading,
+    refetch: refetchDeliveries,
+  } = useQuery({
     queryKey: ['activeDeliveries'],
-    queryFn: DeliveryService.getMyDeliveries,
+    queryFn: () => DeliveryService.getMyDeliveries(),
   });
 
-  const completedDeliveries =
-    activeDeliveries?.filter((d: any) => d.status === 'DELIVERED') || [];
-  const totalEarnings = completedDeliveries.length * 15.0;
-
-  const { socket } = useSocket();
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const events = ['COURIER_ASSIGNED'];
-    const handleUpdate = () => {
-      queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
-    };
-
-    events.forEach(event => socket.on(event, handleUpdate));
-
-    return () => {
-      events.forEach(event => socket.off(event, handleUpdate));
-    };
-  }, [socket, queryClient]);
-
-  const availabilityMutation = useMutation({
-    mutationFn: ({ id, available }: { id: string; available: boolean }) =>
-      DeliveryService.updateAvailability(id, available),
+  const updateAvailabilityMutation = useMutation({
+    mutationFn: (isAvailable: boolean) =>
+      DeliveryService.updateAvailability(profile!.id, isAvailable),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courierProfile'] });
     },
   });
 
-  const [isOnline, setIsOnline] = useState(profile?.isAvailable);
-
   useEffect(() => {
-    setIsOnline(profile?.isAvailable);
-  }, [profile]);
+    if (!socket) return;
+
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
+    };
+
+    socket.on(EventType.DELIVERY_CREATED, handleUpdate);
+    socket.on(EventType.COURIER_ASSIGNED, handleUpdate);
+
+    return () => {
+      socket.off(EventType.DELIVERY_CREATED, handleUpdate);
+      socket.off(EventType.COURIER_ASSIGNED, handleUpdate);
+    };
+  }, [socket, queryClient]);
 
   const toggleAvailability = () => {
-    const nextStatus = !isOnline;
-    setIsOnline(nextStatus);
     if (profile) {
-      availabilityMutation.mutate({
-        id: profile.id,
-        available: nextStatus,
-      });
+      updateAvailabilityMutation.mutate(!profile.isAvailable);
     }
   };
 
@@ -93,143 +87,112 @@ const DashboardScreen = () => {
     );
   }
 
-  const StatCard = ({ icon: Icon, value, label, color }: any) => (
-    <View style={styles.statCard}>
-      <View style={[styles.statIconBadge, { backgroundColor: color + '15' }]}>
-        <Icon size={20} color={color} />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={deliveriesLoading}
+            onRefresh={refetchDeliveries}
+          />
+        }
+      >
         {/* Header Section */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcomeText}>{t('common.welcome_back')}</Text>
-            <Text style={styles.nameText}>
-              {profile?.fullName || 'Courier'}
-            </Text>
+            <Text style={styles.welcomeText}>{t('common.welcome')},</Text>
+            <Text style={styles.nameText}>{profile?.fullName || user?.email}</Text>
           </View>
-          <View style={styles.statusBox}>
-            <Text
-              style={[
-                styles.statusLabel,
-                {
-                  color: isOnline
-                    ? theme.colors.success
-                    : theme.colors.textMuted,
-                },
-              ]}
-            >
-              {isOnline ? t('dashboard.online') : t('dashboard.offline')}
-            </Text>
-            <Switch
-              value={isOnline}
-              onValueChange={toggleAvailability}
-              trackColor={{
-                false: theme.colors.border,
-                true: theme.colors.success + '50',
-              }}
-              thumbColor={isOnline ? theme.colors.success : theme.colors.white}
-              ios_backgroundColor={theme.colors.border}
-            />
-          </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <User color={theme.colors.primary} size={24} />
+          </TouchableOpacity>
         </View>
 
-        {/* Stats Section */}
-        <View style={styles.statsContainer}>
-          <StatCard
-            icon={Truck}
-            value={activeDeliveries?.length || 0}
-            label={t('dashboard.active_deliveries')}
-            color={theme.colors.primary}
-          />
-          <StatCard
-            icon={DollarSign}
-            value={totalEarnings}
-            label={t('dashboard.today_earnings')}
-            color={theme.colors.success}
-          />
-        </View>
-
-        {/* Active Deliveries Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Activity size={20} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>
-                {t('dashboard.working_deliveries')}
+        {/* Status Card */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusInfo}>
+            <View style={styles.statusIconContainer}>
+              <Bike color={theme.colors.primary} size={24} />
+            </View>
+            <View>
+              <Text style={styles.statusLabel}>{t('couriers.availability')}</Text>
+              <Text style={styles.statusValue}>
+                {profile?.isAvailable ? t('common.active') : t('common.inactive')}
               </Text>
             </View>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>{t('dashboard.view_all')}</Text>
-            </TouchableOpacity>
           </View>
+          <Switch
+            value={profile?.isAvailable}
+            onValueChange={toggleAvailability}
+            trackColor={{ false: '#D1D5DB', true: theme.colors.primary + '33' }}
+            thumbColor={profile?.isAvailable ? theme.colors.primary : '#F3F4F6'}
+          />
+        </View>
 
-          {activeDeliveries?.length > 0 ? (
-            activeDeliveries.map((delivery: any) => (
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statBox}>
+            <Star color={theme.colors.warning} size={20} fill={theme.colors.warning} />
+            <Text style={styles.statValue}>{profile?.rating?.toFixed(1) || '0.0'}</Text>
+            <Text style={styles.statLabel}>{t('couriers.rating')}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <CheckCircle2 color={theme.colors.success} size={20} />
+            <Text style={styles.statValue}>{profile?.totalDeliveries || 0}</Text>
+            <Text style={styles.statLabel}>{t('couriers.deliveries')}</Text>
+          </View>
+        </View>
+
+        {/* Active Deliveries */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t('deliveries.active_title')}</Text>
+        </View>
+
+        <View style={styles.deliveriesContainer}>
+          {(activeDeliveries?.length ?? 0) > 0 ? (
+            activeDeliveries?.map((delivery: any) => (
               <TouchableOpacity
                 key={delivery.id}
                 style={styles.deliveryCard}
-                activeOpacity={0.8}
+                onPress={() =>
+                  navigation.navigate('DeliveryDetails', { deliveryId: delivery.id })
+                }
               >
-                <View style={styles.deliveryHeader}>
-                  <View style={styles.orderIdBox}>
-                    <Package size={16} color={theme.colors.primary} />
-                    <Text style={styles.orderIdText}>
-                      #{delivery.id.slice(-6)}
+                <View style={styles.cardHeader}>
+                  <View style={styles.orderInfo}>
+                    <Package size={18} color={theme.colors.primary} />
+                    <Text style={styles.orderId}>
+                      #{delivery.customerOrderId.slice(-6)}
                     </Text>
                   </View>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>
-                      {t(
-                        `deliveries.status_${delivery.status.toLowerCase()}`,
-                        delivery.status,
-                      )}
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(delivery.status) + '15' }]}>
+                    <Text style={[styles.statusText, { color: getStatusColor(delivery.status) }]}>
+                      {t(`deliveries.status_${delivery.status.toLowerCase()}`)}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.addressSection}>
-                  <View style={styles.addressRow}>
-                    <View style={styles.dotContainer}>
-                      <View
-                        style={[
-                          styles.dot,
-                          { backgroundColor: theme.colors.warning },
-                        ]}
-                      />
-                      <View style={styles.connector} />
-                    </View>
-                    <View style={styles.addressInfo}>
-                      <Text style={styles.addressLabel}>
-                        {t('deliveries.pickup')}
-                      </Text>
-                      {delivery?.pickupLocations?.map(pl => (
-                        <Text
-                          key={pl.id}
-                          style={styles.addressText}
-                          numberOfLines={2}
-                        >
-                          {pl?.address}
+                <View style={styles.locationInfo}>
+                  <View style={styles.locationItem}>
+                    <View style={styles.dot} />
+                    <View style={styles.locationDetails}>
+                      <Text style={styles.locationLabel}>{t('deliveries.pickup')}</Text>
+                      {delivery?.pickupLocations?.map((pl: any) => (
+                        <Text key={pl.id} style={styles.addressText} numberOfLines={1}>
+                          {pl.address}
                         </Text>
                       ))}
                     </View>
                   </View>
 
-                  <View style={styles.addressRow}>
-                    <View style={styles.dotContainer}>
-                      <MapPin size={16} color={theme.colors.primary} />
-                    </View>
-                    <View style={styles.addressInfo}>
-                      <Text style={styles.addressLabel}>
-                        {t('deliveries.dropoff')}
-                      </Text>
+                  <View style={[styles.locationItem, { marginTop: 12 }]}>
+                    <MapPin size={16} color={theme.colors.error} />
+                    <View style={styles.locationDetails}>
+                      <Text style={styles.locationLabel}>{t('deliveries.destination')}</Text>
                       <Text style={styles.addressText} numberOfLines={1}>
                         {delivery.deliveryAddress}
                       </Text>
@@ -237,190 +200,166 @@ const DashboardScreen = () => {
                   </View>
                 </View>
 
-                <View style={styles.deliveryFooter}>
-                  <Text style={styles.footerInfo}>
-                    {t('dashboard.estimated_time', { time: 25 })}
-                  </Text>
-                  <ChevronRight size={18} color={theme.colors.border} />
+                <View style={styles.cardFooter}>
+                  <View style={styles.timeInfo}>
+                    <Clock size={14} color={theme.colors.textMuted} />
+                    <Text style={styles.timeText}>
+                      {new Date(delivery.createdAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                  <ChevronRight size={20} color={theme.colors.primary} />
                 </View>
               </TouchableOpacity>
             ))
           ) : (
-            <View style={styles.emptyCard}>
-              <Navigation size={40} color={theme.colors.surface} />
-              <Text style={styles.emptyText}>
-                {t('dashboard.no_deliveries_assigned')}
-              </Text>
-              <Text style={styles.emptySubText}>
-                {t('dashboard.go_online_to_start')}
-              </Text>
+            <View style={styles.emptyContainer}>
+              <Package size={48} color={theme.colors.textMuted} style={{ opacity: 0.3 }} />
+              <Text style={styles.emptyText}>{t('deliveries.no_active')}</Text>
             </View>
           )}
         </View>
-
-        <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+const getStatusColor = (status: DeliveryStatus) => {
+  switch (status) {
+    case DeliveryStatus.PENDING:
+      return '#FF9500';
+    case DeliveryStatus.ASSIGNED:
+      return theme.colors.primary;
+    case DeliveryStatus.PICKED_UP:
+      return '#5856D6';
+    case DeliveryStatus.ON_THE_WAY:
+      return theme.colors.accent;
+    case DeliveryStatus.DELIVERED:
+      return theme.colors.success;
+    default:
+      return theme.colors.textMuted;
+  }
+};
+
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.white },
   container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { padding: 20 },
   header: {
-    padding: theme.spacing.lg,
-    paddingTop: 40,
-    backgroundColor: theme.colors.white,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomLeftRadius: theme.radius.xl,
-    borderBottomRightRadius: theme.radius.xl,
-    ...theme.shadows.soft,
+    marginBottom: 25,
   },
   welcomeText: { fontSize: 14, color: theme.colors.textMuted },
-  nameText: { fontSize: 24, fontWeight: 'bold', color: theme.colors.primary },
-  statusBox: { alignItems: 'center' },
-  statusLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    padding: theme.spacing.lg,
-    justifyContent: 'space-between',
-    marginTop: -20,
-  },
-  statCard: {
+  nameText: { fontSize: 20, fontWeight: 'bold', color: theme.colors.text },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.colors.white,
-    flex: 0.48,
-    padding: 20,
-    borderRadius: theme.radius.lg,
-    alignItems: 'center',
-    ...theme.shadows.medium,
-  },
-  statIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  statValue: { fontSize: 22, fontWeight: 'bold', color: theme.colors.primary },
-  statLabel: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  section: { padding: theme.spacing.lg },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginStart: 8,
-  },
-  viewAllText: {
-    color: theme.colors.secondary,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  deliveryCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xl,
-    padding: 20,
-    marginBottom: 16,
     ...theme.shadows.soft,
   },
-  deliveryHeader: {
+  statusCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    ...theme.shadows.soft,
   },
-  orderIdBox: { flexDirection: 'row', alignItems: 'center' },
-  orderIdText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginStart: 6,
-  },
-  statusBadge: {
+  statusInfo: { flexDirection: 'row', alignItems: 'center' },
+  statusIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: theme.colors.primary + '10',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: theme.radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  statusBadgeText: {
-    color: theme.colors.primary,
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+  statusLabel: { fontSize: 12, color: theme.colors.textMuted },
+  statusValue: { fontSize: 16, fontWeight: 'bold', color: theme.colors.primary },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 15,
+    marginBottom: 25,
   },
-  addressSection: { marginBottom: 20 },
-  addressRow: { flexDirection: 'row', marginBottom: 2 },
-  dotContainer: { alignItems: 'center', width: 24, marginEnd: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
-  connector: {
-    width: 2,
+  statBox: {
     flex: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: 4,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    ...theme.shadows.soft,
   },
-  addressInfo: { flex: 1, paddingBottom: 15 },
-  addressLabel: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 2,
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginTop: 8,
   },
-  addressText: { fontSize: 14, color: theme.colors.primary, fontWeight: '500' },
-  deliveryFooter: {
+  statLabel: { fontSize: 12, color: theme.colors.textMuted, marginTop: 2 },
+  sectionHeader: { marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
+  deliveriesContainer: { gap: 15 },
+  deliveryCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 16,
+    ...theme.shadows.soft,
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.background,
+    marginBottom: 15,
   },
-  footerInfo: { fontSize: 12, color: theme.colors.textMuted },
-  emptyCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xl,
-    padding: 40,
+  orderInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  orderId: { fontWeight: 'bold', fontSize: 15, color: theme.colors.text },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 11, fontWeight: 'bold' },
+  locationInfo: { marginBottom: 15 },
+  locationItem: { flexDirection: 'row', gap: 12 },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+    marginTop: 6,
+  },
+  locationDetails: { flex: 1 },
+  locationLabel: { fontSize: 11, color: theme.colors.textMuted, marginBottom: 2 },
+  addressText: { fontSize: 13, color: theme.colors.text, fontWeight: '500' },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  timeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  timeText: { fontSize: 12, color: theme.colors.textMuted },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.background,
+    borderColor: theme.colors.border,
     borderStyle: 'dashed',
   },
   emptyText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  emptySubText: {
-    marginTop: 4,
+    marginTop: 12,
     fontSize: 14,
     color: theme.colors.textMuted,
-    textAlign: 'center',
   },
 });
 
