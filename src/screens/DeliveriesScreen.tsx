@@ -183,6 +183,33 @@ const DeliveriesScreen = () => {
           </View>
         </View>
 
+        <View style={styles.itemsContainer}>
+          <Text style={styles.itemsTitle}>{t('deliveries.order_items')}</Text>
+          {item.vendorOrders?.map((vo: any) => (
+            <View key={vo.id} style={styles.vendorSection}>
+              <Text style={styles.vendorName}>{vo.vendorName || t('common.vendor')}</Text>
+              {vo.items?.map((orderItem: any) => (
+                <View key={orderItem.id} style={styles.itemRow}>
+                  <Text style={styles.itemName}>
+                    {orderItem.productName} {orderItem.quantity ? `x${orderItem.quantity}` : ''}
+                    {orderItem.actualWeightGrams
+                      ? ` (${(orderItem.actualWeightGrams / 1000).toFixed(2)} kg)`
+                      : orderItem.requestedWeightGrams
+                        ? ` (${(orderItem.requestedWeightGrams / 1000).toFixed(2)} kg)`
+                        : ''}
+                  </Text>
+                  <Text style={styles.itemPrice}>
+                    {orderItem.totalPrice.toFixed(2)} {t('common.currency')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+          {(!item.vendorOrders || item.vendorOrders.length === 0) && (
+            <Text style={styles.emptyText}>{t('deliveries.no_items_found')}</Text>
+          )}
+        </View>
+
         {!isCompleted && (
           <TouchableOpacity
             style={[
@@ -394,10 +421,47 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   emptyText: {
-    marginTop: 16,
-    fontSize: 16,
     color: theme.colors.textMuted,
     fontWeight: '500',
+  },
+  itemsContainer: {
+    marginTop: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    marginBottom: 15,
+  },
+  itemsTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  vendorSection: {
+    marginBottom: 10,
+  },
+  vendorName: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+    marginBottom: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  itemName: {
+    fontSize: 13,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  itemPrice: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginStart: 10,
   },
 });
 
