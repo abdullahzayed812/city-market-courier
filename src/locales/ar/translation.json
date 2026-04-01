@@ -19,7 +19,12 @@
     "logged_out": "تم تسجيل الخروج",
     "see_soon": "نراك قريباً!",
     "logout_failed": "فشل تسجيل الخروج",
-    "fill_all_fields": "يرجى ملء جميع الحقول"
+    "fill_all_fields": "يرجى ملء جميع الحقول",
+    "welcome": "مرحبًا",
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "vendor": "البائع",
+    "currency": "ج.م"
   },
   "auth": {
     "email": "البريد الإلكتروني",
@@ -44,6 +49,11 @@
     "no_deliveries_assigned": "لا توجد طلبات معينة حالياً",
     "go_online_to_start": "اتصل بالإنترنت لبدء استقبال الطلبات!"
   },
+  "couriers": {
+    "availability": "الحالة",
+    "rating": "التقييم",
+    "deliveries": "عدد التوصيلات"
+  },
   "deliveries": {
     "title": "الطلبات",
     "pickup": "استلام",
@@ -67,7 +77,17 @@
     "complete": "إكمال",
     "delivery_successful": "تم التوصيل بنجاح",
     "all_deliveries": "كافة الطلبات",
-    "no_delivery_history": "لا يوجد سجل طلبات بعد"
+    "no_delivery_history": "لا يوجد سجل طلبات بعد",
+    "active_title": "الطلبات النشطة",
+    "destination": "الوجهة",
+    "no_active": "لا توجد طلبات نشطة",
+    "order_items": "عناصر الطلب",
+    "no_items_found": "لا توجد عناصر",
+    "update_status_title": "تحديث حالة الطلب",
+    "update_status_description": "هل أنت متأكد من رغبتك في تحديث حالة هذا الطلب؟ سيتم إخطار العميل والنظام.",
+    "order_number": "رقم الطلب",
+    "current_status": "الحالة الحالية",
+    "next_status": "الحالة التالية"
   },
   "earnings": {
     "title": "الأرباح",

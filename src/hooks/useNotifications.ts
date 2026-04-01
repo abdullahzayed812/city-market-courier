@@ -3,7 +3,7 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import {
   getMessaging,
   RemoteMessage,
-  onMessage,
+  // onMessage,
   onTokenRefresh,
   onNotificationOpenedApp,
   requestPermission,
@@ -13,7 +13,7 @@ import {
 } from '@react-native-firebase/messaging';
 import { NotificationService } from '../services/api/notificationService';
 import { useAuth } from '../app/AuthContext';
-import Toast from 'react-native-toast-message';
+// import Toast from 'react-native-toast-message';
 import { AppType, PlatformType } from '@city-market/shared';
 import { navigationRef } from '../navigation/RootNavigator';
 
@@ -53,13 +53,22 @@ export const useNotifications = (appType: AppType) => {
 
   useEffect(() => {
     // 1. Handle Foreground Messages
-    const unsubscribeOnMessage = onMessage(messaging, async remoteMessage => {
-      Toast.show({
-        type: 'info',
-        text1: remoteMessage.notification?.title,
-        text2: remoteMessage.notification?.body,
-      });
-    });
+    // const unsubscribeOnMessage = onMessage(messaging, async remoteMessage => {
+    //   // Modern slide-down banner for foreground messages
+    //   Toast.show({
+    //     type: 'notification',
+    //     text1: remoteMessage.notification?.title || 'New Update',
+    //     text2: remoteMessage.notification?.body,
+    //     props: {
+    //       onPress: () => {
+    //         Toast.hide();
+    //         handleNotificationNavigation(remoteMessage);
+    //       },
+    //     },
+    //     visibilityTime: 4000,
+    //     autoHide: true,
+    //   });
+    // });
 
     // 2. Handle Token Refresh (CRITICAL)
     const unsubscribeTokenRefresh = onTokenRefresh(
@@ -90,7 +99,7 @@ export const useNotifications = (appType: AppType) => {
     });
 
     return () => {
-      unsubscribeOnMessage();
+      // unsubscribeOnMessage();
       unsubscribeTokenRefresh();
       unsubscribeNotificationOpened();
     };

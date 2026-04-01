@@ -102,7 +102,9 @@ const DashboardScreen = ({ navigation }: any) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>{t('common.welcome')},</Text>
-            <Text style={styles.nameText}>{profile?.fullName || user?.email}</Text>
+            <Text style={styles.nameText}>
+              {profile?.fullName || user?.email}
+            </Text>
           </View>
           <TouchableOpacity
             style={styles.profileButton}
@@ -119,9 +121,13 @@ const DashboardScreen = ({ navigation }: any) => {
               <Bike color={theme.colors.primary} size={24} />
             </View>
             <View>
-              <Text style={styles.statusLabel}>{t('couriers.availability')}</Text>
+              <Text style={styles.statusLabel}>
+                {t('couriers.availability')}
+              </Text>
               <Text style={styles.statusValue}>
-                {profile?.isAvailable ? t('common.active') : t('common.inactive')}
+                {profile?.isAvailable
+                  ? t('common.active')
+                  : t('common.inactive')}
               </Text>
             </View>
           </View>
@@ -136,20 +142,30 @@ const DashboardScreen = ({ navigation }: any) => {
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
-            <Star color={theme.colors.warning} size={20} fill={theme.colors.warning} />
-            <Text style={styles.statValue}>{profile?.rating?.toFixed(1) || '0.0'}</Text>
+            <Star
+              color={theme.colors.warning}
+              size={20}
+              fill={theme.colors.warning}
+            />
+            <Text style={styles.statValue}>
+              {profile?.rating?.toFixed(1) || '0.0'}
+            </Text>
             <Text style={styles.statLabel}>{t('couriers.rating')}</Text>
           </View>
           <View style={styles.statBox}>
             <CheckCircle2 color={theme.colors.success} size={20} />
-            <Text style={styles.statValue}>{profile?.totalDeliveries || 0}</Text>
+            <Text style={styles.statValue}>
+              {profile?.totalDeliveries || 0}
+            </Text>
             <Text style={styles.statLabel}>{t('couriers.deliveries')}</Text>
           </View>
         </View>
 
         {/* Active Deliveries */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('deliveries.active_title')}</Text>
+          <Text style={styles.sectionTitle}>
+            {t('deliveries.active_title')}
+          </Text>
         </View>
 
         <View style={styles.deliveriesContainer}>
@@ -158,9 +174,7 @@ const DashboardScreen = ({ navigation }: any) => {
               <TouchableOpacity
                 key={delivery.id}
                 style={styles.deliveryCard}
-                onPress={() =>
-                  navigation.navigate('DeliveryDetails', { deliveryId: delivery.id })
-                }
+                onPress={() => navigation.navigate('Deliveries')}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.orderInfo}>
@@ -169,8 +183,20 @@ const DashboardScreen = ({ navigation }: any) => {
                       #{delivery.customerOrderId.slice(-6)}
                     </Text>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(delivery.status) + '15' }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(delivery.status) }]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: getStatusColor(delivery.status) + '15',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: getStatusColor(delivery.status) },
+                      ]}
+                    >
                       {t(`deliveries.status_${delivery.status.toLowerCase()}`)}
                     </Text>
                   </View>
@@ -180,9 +206,15 @@ const DashboardScreen = ({ navigation }: any) => {
                   <View style={styles.locationItem}>
                     <View style={styles.dot} />
                     <View style={styles.locationDetails}>
-                      <Text style={styles.locationLabel}>{t('deliveries.pickup')}</Text>
+                      <Text style={styles.locationLabel}>
+                        {t('deliveries.pickup')}
+                      </Text>
                       {delivery?.pickupLocations?.map((pl: any) => (
-                        <Text key={pl.id} style={styles.addressText} numberOfLines={1}>
+                        <Text
+                          key={pl.id}
+                          style={styles.addressText}
+                          numberOfLines={1}
+                        >
                           {pl.address}
                         </Text>
                       ))}
@@ -192,7 +224,9 @@ const DashboardScreen = ({ navigation }: any) => {
                   <View style={[styles.locationItem, { marginTop: 12 }]}>
                     <MapPin size={16} color={theme.colors.error} />
                     <View style={styles.locationDetails}>
-                      <Text style={styles.locationLabel}>{t('deliveries.destination')}</Text>
+                      <Text style={styles.locationLabel}>
+                        {t('deliveries.destination')}
+                      </Text>
                       <Text style={styles.addressText} numberOfLines={1}>
                         {delivery.deliveryAddress}
                       </Text>
@@ -216,7 +250,11 @@ const DashboardScreen = ({ navigation }: any) => {
             ))
           ) : (
             <View style={styles.emptyContainer}>
-              <Package size={48} color={theme.colors.textMuted} style={{ opacity: 0.3 }} />
+              <Package
+                size={48}
+                color={theme.colors.textMuted}
+                style={{ opacity: 0.3 }}
+              />
               <Text style={styles.emptyText}>{t('deliveries.no_active')}</Text>
             </View>
           )}
@@ -285,7 +323,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   statusLabel: { fontSize: 12, color: theme.colors.textMuted },
-  statusValue: { fontSize: 16, fontWeight: 'bold', color: theme.colors.primary },
+  statusValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
   statsGrid: {
     flexDirection: 'row',
     gap: 15,
@@ -335,7 +377,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   locationDetails: { flex: 1 },
-  locationLabel: { fontSize: 11, color: theme.colors.textMuted, marginBottom: 2 },
+  locationLabel: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginBottom: 2,
+  },
   addressText: { fontSize: 13, color: theme.colors.text, fontWeight: '500' },
   cardFooter: {
     flexDirection: 'row',
