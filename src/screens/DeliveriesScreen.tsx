@@ -20,6 +20,7 @@ import {
   Clock,
   AlertTriangle,
   X,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
@@ -230,10 +231,10 @@ const DeliveriesScreen = () => {
                           2,
                         )} kg)`
                       : orderItem.requestedWeightGrams
-                        ? ` (${(orderItem.requestedWeightGrams / 1000).toFixed(
-                            2,
-                          )} kg)`
-                        : ''}
+                      ? ` (${(orderItem.requestedWeightGrams / 1000).toFixed(
+                          2,
+                        )} kg)`
+                      : ''}
                   </Text>
                   <Text style={styles.itemPrice}>
                     {orderItem.totalPrice.toFixed(2)} {t('common.currency')}
@@ -399,7 +400,7 @@ const DeliveriesScreen = () => {
                       </View>
                     </View>
 
-                    <ChevronRight size={20} color={theme.colors.textMuted} />
+                    <ChevronLeft size={20} color={theme.colors.textMuted} />
 
                     <View style={styles.statusPoint}>
                       <Text style={styles.statusLabel}>
@@ -695,8 +696,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusPoint: {
-    flex: 1,
-    alignItems: 'flex-start',
+    // flex: 1,
+    // alignItems: 'flex-start',
   },
   statusLabel: {
     fontSize: 11,
