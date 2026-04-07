@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -82,6 +82,21 @@ const DeliveriesScreen = () => {
     },
   });
 
+  const deliveriesWithTotal = useMemo(() => {
+    return (myDeliveries || []).map(d => ({
+      ...d,
+      computedTotal:
+        d.vendorOrders?.reduce((total: number, vo: any) => {
+          return (
+            total +
+            (vo.items?.reduce((sum: number, i: any) => {
+              return sum + (i.totalPrice || 0);
+            }, 0) || 0)
+          );
+        }, 0) || 0,
+    }));
+  }, [myDeliveries]);
+
   const handleUpdateStatus = (
     id: string,
     currentStatus: DeliveryStatus,
@@ -154,6 +169,8 @@ const DeliveriesScreen = () => {
     const statusConfig = getStatusConfig(item.status);
     const isCompleted = item.status === DeliveryStatus.DELIVERED;
 
+    const totalPrice = item.computedTotal;
+
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
@@ -223,19 +240,22 @@ const DeliveriesScreen = () => {
               </Text>
               {vo.items?.map((orderItem: any) => (
                 <View key={orderItem.id} style={styles.itemRow}>
-                  <Text style={styles.itemName}>
-                    {orderItem.productName}{' '}
-                    {orderItem.quantity ? `x${orderItem.quantity}` : ''}
-                    {orderItem.actualWeightGrams
-                      ? ` (${(orderItem.actualWeightGrams / 1000).toFixed(
-                          2,
-                        )} kg)`
-                      : orderItem.requestedWeightGrams
-                      ? ` (${(orderItem.requestedWeightGrams / 1000).toFixed(
-                          2,
-                        )} kg)`
-                      : ''}
-                  </Text>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{orderItem.productName}</Text>
+
+                    <Text style={styles.itemQuantity}>
+                      {orderItem.quantity ? `x${orderItem.quantity}` : ''}
+                      {orderItem.actualWeightGrams
+                        ? ` (${(orderItem.actualWeightGrams / 1000).toFixed(
+                            2,
+                          )} kg)`
+                        : orderItem.requestedWeightGrams
+                        ? ` (${(orderItem.requestedWeightGrams / 1000).toFixed(
+                            2,
+                          )} kg)`
+                        : ''}
+                    </Text>
+                  </View>
                   <Text style={styles.itemPrice}>
                     {orderItem.totalPrice.toFixed(2)} {t('common.currency')}
                   </Text>
@@ -243,6 +263,14 @@ const DeliveriesScreen = () => {
               ))}
             </View>
           ))}
+
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
+              {t('deliveries.total_price')}: {totalPrice.toFixed(2)}{' '}
+              {t('common.currency')}
+            </Text>
+          </View>
+
           {(!item.vendorOrders || item.vendorOrders.length === 0) && (
             <Text style={styles.emptyText}>
               {t('deliveries.no_items_found')}
@@ -315,7 +343,7 @@ const DeliveriesScreen = () => {
         </View>
 
         <FlatList
-          data={[...(myDeliveries || [])]}
+          data={deliveriesWithTotal}
           renderItem={renderDeliveryItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
@@ -609,13 +637,21 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    // justifyContent: 'flex-start',
     paddingVertical: 2,
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemQuantity: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
   itemName: {
     fontSize: 13,
     color: theme.colors.text,
-    flex: 1,
+    // flex: 1,
   },
   itemPrice: {
     fontSize: 13,

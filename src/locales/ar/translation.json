@@ -87,7 +87,8 @@
     "update_status_description": "هل أنت متأكد من رغبتك في تحديث حالة هذا الطلب؟ سيتم إخطار العميل والنظام.",
     "order_number": "رقم الطلب",
     "current_status": "الحالة الحالية",
-    "next_status": "الحالة التالية"
+    "next_status": "الحالة التالية",
+    "total_price": "السعر الإجمالي"
   },
   "earnings": {
     "title": "الأرباح",

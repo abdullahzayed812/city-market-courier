@@ -87,7 +87,8 @@
     "update_status_description": "Are you sure you want to update the status of this delivery? This action will notify the customer and the system.",
     "order_number": "Order Number",
     "current_status": "Current Status",
-    "next_status": "Next Status"
+    "next_status": "Next Status",
+    "total_price": "Total Price"
   },
   "earnings": {
     "title": "Earnings",
