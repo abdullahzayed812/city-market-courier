@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,13 @@ import {
   Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Truck, ChevronRight } from 'lucide-react-native';
+import { Mail, Lock, Truck, ChevronRight, Server } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthService } from '../services/api/authService';
 import { useAuth } from '../app/AuthContext';
 import { theme } from '../theme';
+import { SERVERS, getServerIP, setServerIP } from '../utils/serverConfig';
 
 const LoginScreen = () => {
   const { t, i18n } = useTranslation();
@@ -25,7 +26,21 @@ const LoginScreen = () => {
   const [email, setEmail] = useState('courier@citymarket.com');
   const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
+  const [selectedServer, setSelectedServer] = useState(SERVERS.PC);
   const isRTL = i18n.language === 'ar';
+
+  useEffect(() => {
+    const loadServer = async () => {
+      const ip = await getServerIP();
+      setSelectedServer(ip);
+    };
+    loadServer();
+  }, []);
+
+  const handleServerChange = async (ip: string) => {
+    await setServerIP(ip);
+    setSelectedServer(ip);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -74,6 +89,48 @@ const LoginScreen = () => {
             </View>
             <Text style={styles.title}>{t('auth.login_title')}</Text>
             <Text style={styles.subtitle}>{t('auth.login_subtitle')}</Text>
+          </View>
+
+          {/* Server Selection Section */}
+          <View style={styles.serverSelectionContainer}>
+            <View style={styles.serverLabelContainer}>
+              <Server size={16} color={theme.colors.primary} style={{ marginEnd: 6 }} />
+              <Text style={styles.serverLabel}>Select Server Environment</Text>
+            </View>
+            <View style={styles.serverButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.serverButton,
+                  selectedServer === SERVERS.PC && styles.activeServerButton,
+                ]}
+                onPress={() => handleServerChange(SERVERS.PC)}
+              >
+                <Text
+                  style={[
+                    styles.serverButtonText,
+                    selectedServer === SERVERS.PC && styles.activeServerButtonText,
+                  ]}
+                >
+                  PC (128)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.serverButton,
+                  selectedServer === SERVERS.LAPTOP && styles.activeServerButton,
+                ]}
+                onPress={() => handleServerChange(SERVERS.LAPTOP)}
+              >
+                <Text
+                  style={[
+                    styles.serverButtonText,
+                    selectedServer === SERVERS.LAPTOP && styles.activeServerButtonText,
+                  ]}
+                >
+                  Laptop (2)
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.form}>
@@ -159,6 +216,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textMuted,
     textAlign: 'center',
+  },
+  serverSelectionContainer: {
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    marginBottom: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border || '#eee',
+    ...theme.shadows.soft,
+  },
+  serverLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  serverLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  serverButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  serverButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: theme.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border || '#eee',
+  },
+  activeServerButton: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  serverButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textSecondary || '#666',
+  },
+  activeServerButtonText: {
+    color: theme.colors.white,
   },
   form: {
     width: '100%',

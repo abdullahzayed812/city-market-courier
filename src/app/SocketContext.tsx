@@ -1,12 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-
-// IMPORTANT: For Android Emulator, use 10.0.2.2 instead of localhost
-// For physical device, use your machine's IP address
-// We should probably rely on an ENV var or a config file
-// const SOCKET_URL = 'http://10.0.2.2:3009';
-const SOCKET_URL = 'http://192.168.0.128:3009';
+import { getSocketURL } from '../utils/serverConfig';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -32,37 +27,45 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    // Initialize socket connection
-    const newSocket = io(SOCKET_URL, {
-      auth: {
-        token: userToken,
-      },
-      transports: ['websocket'], // Force websocket for RN usually better
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    const initSocket = async () => {
+      const SOCKET_URL = await getSocketURL();
+      
+      // Initialize socket connection
+      const newSocket = io(SOCKET_URL, {
+        auth: {
+          token: userToken,
+        },
+        transports: ['websocket'], // Force websocket for RN usually better
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-    newSocket.on('connect', () => {
-      console.log('Connected to WebSocket Gateway');
-      setIsConnected(true);
-    });
+      newSocket.on('connect', () => {
+        console.log('Connected to WebSocket Gateway');
+        setIsConnected(true);
+      });
 
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from WebSocket Gateway');
-      setIsConnected(false);
-    });
+      newSocket.on('disconnect', () => {
+        console.log('Disconnected from WebSocket Gateway');
+        setIsConnected(false);
+      });
 
-    newSocket.on('connect_error', err => {
-      console.error('WebSocket connection error:', err.message);
-      setIsConnected(false);
-    });
+      newSocket.on('connect_error', err => {
+        console.error('WebSocket connection error:', err.message);
+        setIsConnected(false);
+      });
 
-    setSocket(newSocket);
+      setSocket(newSocket);
+    };
+
+    initSocket();
 
     // Cleanup on unmount or token change
     return () => {
-      newSocket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, [userToken]);
 
