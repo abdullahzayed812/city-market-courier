@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   StatusBar,
   Modal,
+  Linking,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,12 +24,14 @@ import {
   AlertTriangle,
   X,
   ChevronLeft,
+  Phone,
+  XCircle,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
 import { useSocket } from '../app/SocketContext';
 import { theme } from '../theme';
-import { Delivery, DeliveryStatus, EventType } from '@city-market/shared'; // Import shared types
+import { Delivery, DeliveryStatus, EventType } from '@city-market/shared';
 
 const DeliveriesScreen = () => {
   const { t, i18n } = useTranslation();
@@ -41,6 +46,18 @@ const DeliveriesScreen = () => {
     customerOrderId: string;
   } | null>(null);
 
+  const CANCEL_REASONS = [
+    'cancel_reason_not_available',
+    'cancel_reason_refused',
+    'cancel_reason_wrong_address',
+    'cancel_reason_other',
+  ] as const;
+
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelDeliveryId, setCancelDeliveryId] = useState<string | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string | null>(null);
+  const [customReason, setCustomReason] = useState('');
+
   const { data: myDeliveries, isLoading: myLoading } = useQuery<
     Delivery[] | undefined
   >({
@@ -48,6 +65,8 @@ const DeliveriesScreen = () => {
     queryKey: ['myDeliveries'],
     queryFn: DeliveryService.getMyDeliveries,
   });
+
+  console.log(myDeliveries);
 
   const { socket } = useSocket();
 
@@ -67,18 +86,30 @@ const DeliveriesScreen = () => {
   }, [socket, queryClient]);
 
   const statusMutation = useMutation({
-    mutationFn: (
-      {
-        id,
-        status,
-        vendorOrderId,
-      }: { id: string; status: DeliveryStatus; vendorOrderId: string }, // Use DeliveryStatus and vendorOrderId
-    ) => DeliveryService.updateStatus(id, { status, vendorOrderId }),
+    mutationFn: ({
+      id,
+      status,
+      vendorOrderId,
+    }: { id: string; status: DeliveryStatus; vendorOrderId: string }) =>
+      DeliveryService.updateStatus(id, { status, vendorOrderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
       queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
       setModalVisible(false);
       setSelectedDelivery(null);
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      DeliveryService.cancelByCourier(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
+      setCancelModalVisible(false);
+      setCancelDeliveryId(null);
+      setSelectedReason(null);
+      setCustomReason('');
     },
   });
 
@@ -97,19 +128,60 @@ const DeliveriesScreen = () => {
     }));
   }, [myDeliveries]);
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const hasAssigned = (myDeliveries || []).some(
+      d => d.status === DeliveryStatus.ASSIGNED && d.assignedWindowExpiry,
+    );
+    if (!hasAssigned) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [myDeliveries]);
+
+  const getAssignedWindowCountdown = useCallback(
+    (expiry: Date | string | undefined): string | null => {
+      if (!expiry) return null;
+      const diff = Math.max(0, new Date(expiry).getTime() - now);
+      if (diff === 0) return null;
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    },
+    [now],
+  );
+
+  const isWithinAssignedWindow = useCallback(
+    (expiry: Date | string | undefined): boolean => {
+      if (!expiry) return false;
+      return new Date(expiry).getTime() > now;
+    },
+    [now],
+  );
+
   const handleUpdateStatus = (
     id: string,
     currentStatus: DeliveryStatus,
     vendorOrderId: string,
     customerOrderId: string,
   ) => {
-    setSelectedDelivery({
-      id,
-      status: currentStatus,
-      vendorOrderId,
-      customerOrderId,
-    });
+    setSelectedDelivery({ id, status: currentStatus, vendorOrderId, customerOrderId });
     setModalVisible(true);
+  };
+
+  const handleOpenCancelModal = (deliveryId: string) => {
+    setCancelDeliveryId(deliveryId);
+    setSelectedReason(null);
+    setCustomReason('');
+    setCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = () => {
+    if (!cancelDeliveryId || !selectedReason) return;
+    const reason =
+      selectedReason === 'cancel_reason_other'
+        ? customReason.trim() || t(`deliveries.${selectedReason}`)
+        : t(`deliveries.${selectedReason}`);
+    cancelMutation.mutate({ id: cancelDeliveryId, reason });
   };
 
   const confirmUpdateStatus = () => {
@@ -165,9 +237,14 @@ const DeliveriesScreen = () => {
   };
 
   const renderDeliveryItem = ({ item }: { item: Delivery }) => {
-    // Use Delivery
     const statusConfig = getStatusConfig(item.status);
     const isCompleted = item.status === DeliveryStatus.DELIVERED;
+    const inCallWindow =
+      item.status === DeliveryStatus.ASSIGNED &&
+      isWithinAssignedWindow(item.assignedWindowExpiry);
+    const countdown = inCallWindow
+      ? getAssignedWindowCountdown(item.assignedWindowExpiry)
+      : null;
 
     const totalPrice = item.computedTotal;
 
@@ -266,7 +343,7 @@ const DeliveriesScreen = () => {
 
           <View style={{ marginTop: 12 }}>
             <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-              {t('deliveries.total_price')}: {totalPrice.toFixed(2)}{' '}
+              {t('deliveries.total_price')}: {totalPrice?.toFixed(2)}{' '}
               {t('common.currency')}
             </Text>
           </View>
@@ -278,29 +355,71 @@ const DeliveriesScreen = () => {
           )}
         </View>
 
-        {!isCompleted && (
+        {item.status === DeliveryStatus.ASSIGNED && (
+          <View style={styles.assignedActions}>
+            {/* Countdown badge */}
+            {inCallWindow && countdown && (
+              <View style={styles.countdownBadge}>
+                <Clock size={13} color="#FF9500" />
+                <Text style={styles.countdownBadgeText}>
+                  {t('deliveries.call_window_label')}: {countdown}
+                </Text>
+              </View>
+            )}
+
+            {/* Primary row: Confirm Pickup + Call Customer */}
+            <View style={styles.assignedButtonRow}>
+              <TouchableOpacity
+                style={[styles.confirmPickupButton, statusMutation.isPending && styles.disabledButton]}
+                onPress={() =>
+                  handleUpdateStatus(item.id, item.status, item.vendorOrderId || '', item.customerOrderId || '')
+                }
+                disabled={statusMutation.isPending}
+              >
+                {statusMutation.isPending ? (
+                  <ActivityIndicator color={theme.colors.white} size="small" />
+                ) : (
+                  <Text style={styles.confirmPickupText}>{t('deliveries.confirm_pickup')}</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.callButtonSmall, !item.customerPhone && styles.disabledButton]}
+                onPress={() => item.customerPhone && Linking.openURL(`tel:${item.customerPhone}`)}
+                disabled={!item.customerPhone}
+              >
+                <Phone size={16} color={theme.colors.white} />
+                <Text style={styles.callButtonSmallText}>{t('deliveries.call_customer')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Cancel button — only after window expires */}
+            {!inCallWindow && (
+              <TouchableOpacity
+                style={[styles.cancelDeliveryButton, cancelMutation.isPending && styles.disabledButton]}
+                onPress={() => handleOpenCancelModal(item.id)}
+                disabled={cancelMutation.isPending}
+              >
+                <XCircle size={16} color={theme.colors.error} />
+                <Text style={styles.cancelDeliveryText}>{t('deliveries.cancel_delivery')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {!isCompleted && item.status !== DeliveryStatus.ASSIGNED && (
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              statusMutation.isPending && styles.disabledButton,
-            ]}
+            style={[styles.actionButton, statusMutation.isPending && styles.disabledButton]}
             onPress={() =>
-              handleUpdateStatus(
-                item.id,
-                item.status,
-                item.vendorOrderId || '',
-                item.customerOrderId || '',
-              )
-            } // Pass vendorOrderId
+              handleUpdateStatus(item.id, item.status, item.vendorOrderId || '', item.customerOrderId || '')
+            }
             disabled={statusMutation.isPending}
           >
             {statusMutation.isPending ? (
               <ActivityIndicator color={theme.colors.white} />
             ) : (
               <>
-                <Text style={styles.actionButtonText}>
-                  {getNextStatusLabel(item.status, t)}
-                </Text>
+                <Text style={styles.actionButtonText}>{getNextStatusLabel(item.status, t)}</Text>
                 <ChevronRight
                   size={20}
                   color={theme.colors.white}
@@ -472,6 +591,95 @@ const DeliveriesScreen = () => {
           </View>
         </View>
       </Modal>
+      {/* Cancel Reason Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.alertIconContainer, { backgroundColor: theme.colors.error + '15' }]}>
+                <XCircle size={24} color={theme.colors.error} />
+              </View>
+              <Text style={styles.modalTitle}>{t('deliveries.cancel_delivery_title')}</Text>
+              <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={styles.closeButton}>
+                <X size={20} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.modalDescription}>{t('deliveries.cancel_delivery_body')}</Text>
+
+              {CANCEL_REASONS.map(reasonKey => (
+                <TouchableOpacity
+                  key={reasonKey}
+                  style={[
+                    styles.reasonOption,
+                    selectedReason === reasonKey && styles.reasonOptionSelected,
+                  ]}
+                  onPress={() => setSelectedReason(reasonKey)}
+                >
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      selectedReason === reasonKey && styles.radioCircleSelected,
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.reasonText,
+                      selectedReason === reasonKey && styles.reasonTextSelected,
+                    ]}
+                  >
+                    {t(`deliveries.${reasonKey}`)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              {selectedReason === 'cancel_reason_other' && (
+                <TextInput
+                  style={styles.reasonInput}
+                  placeholder={t('deliveries.cancel_reason_placeholder')}
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setCancelModalVisible(false)}
+                disabled={cancelMutation.isPending}
+              >
+                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  { backgroundColor: theme.colors.error },
+                  (!selectedReason || cancelMutation.isPending) && styles.disabledButton,
+                ]}
+                onPress={handleConfirmCancel}
+                disabled={!selectedReason || cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? (
+                  <ActivityIndicator color={theme.colors.white} size="small" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>{t('deliveries.cancel_confirm')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -586,6 +794,125 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginEnd: 8,
+  },
+  assignedActions: {
+    marginTop: 10,
+  },
+  countdownBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#FF9500' + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: theme.radius.full,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FF9500' + '30',
+  },
+  countdownBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FF9500',
+    marginStart: 5,
+  },
+  assignedButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmPickupButton: {
+    flex: 1,
+    height: 48,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...theme.shadows.soft,
+  },
+  confirmPickupText: {
+    color: theme.colors.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  callButtonSmall: {
+    flex: 1,
+    height: 48,
+    backgroundColor: '#FF9500',
+    borderRadius: theme.radius.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...theme.shadows.soft,
+  },
+  callButtonSmallText: {
+    color: theme.colors.white,
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginStart: 6,
+  },
+  cancelDeliveryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    marginTop: 10,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.error + '50',
+    backgroundColor: theme.colors.error + '08',
+  },
+  cancelDeliveryText: {
+    color: theme.colors.error,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginStart: 6,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 8,
+    backgroundColor: theme.colors.white,
+  },
+  reasonOptionSelected: {
+    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.error + '08',
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    marginEnd: 10,
+  },
+  radioCircleSelected: {
+    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.error,
+  },
+  reasonText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    flex: 1,
+  },
+  reasonTextSelected: {
+    color: theme.colors.error,
+    fontWeight: '600',
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    fontSize: 14,
+    color: theme.colors.text,
+    minHeight: 80,
+    marginTop: 4,
+    backgroundColor: theme.colors.white,
   },
   completedBox: {
     flexDirection: 'row',

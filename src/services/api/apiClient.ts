@@ -3,6 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from '../../locales/i18n';
 import { getApiBaseURL } from '../../utils/serverConfig';
 
+let signOutCallback: (() => void) | null = null;
+export const setSignOutCallback = (fn: () => void) => { signOutCallback = fn; };
+
 const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
@@ -44,15 +47,16 @@ apiClient.interceptors.response.use(
           const response = await axios.post(`${API_URL}/auth/refresh`, {
             refreshToken,
           });
-          const { accessToken } = response.data?.data;
+          const { accessToken, refreshToken: newRefreshToken } = response.data?.data;
           await AsyncStorage.setItem('auth_token', accessToken);
+          await AsyncStorage.setItem('refresh_token', newRefreshToken);
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return apiClient(originalRequest);
         }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        signOutCallback?.();
       } catch (refreshError) {
         await AsyncStorage.multiRemove(['auth_token', 'refresh_token']);
-        // Navigation to login should be handled by the app state (e.g., AuthContext)
+        signOutCallback?.();
       }
     }
     return Promise.reject(error);

@@ -64,11 +64,11 @@ const DashboardScreen = ({ navigation }: any) => {
       queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
     };
 
-    socket.on(EventType.DELIVERY_CREATED, handleUpdate);
+    // socket.on(EventType.DELIVERY_CREATED, handleUpdate);
     socket.on(EventType.COURIER_ASSIGNED, handleUpdate);
 
     return () => {
-      socket.off(EventType.DELIVERY_CREATED, handleUpdate);
+      // socket.off(EventType.DELIVERY_CREATED, handleUpdate);
       socket.off(EventType.COURIER_ASSIGNED, handleUpdate);
     };
   }, [socket, queryClient]);

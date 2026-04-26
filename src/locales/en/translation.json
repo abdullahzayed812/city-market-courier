@@ -88,7 +88,20 @@
     "order_number": "Order Number",
     "current_status": "Current Status",
     "next_status": "Next Status",
-    "total_price": "Total Price"
+    "total_price": "Total Price",
+    "call_customer": "Call Customer",
+    "call_window_label": "Contact window",
+    "call_window_expires_in": "Expires in",
+    "call_window_hint": "Contact the customer before proceeding with pickup.",
+    "cancel_delivery": "Cancel Delivery",
+    "cancel_delivery_title": "Cancel Delivery",
+    "cancel_delivery_body": "Select the reason for cancellation. This will be recorded against the customer's account.",
+    "cancel_reason_not_available": "Customer not available",
+    "cancel_reason_refused": "Customer refused delivery",
+    "cancel_reason_wrong_address": "Wrong address",
+    "cancel_reason_other": "Other",
+    "cancel_reason_placeholder": "Describe the reason...",
+    "cancel_confirm": "Confirm Cancellation"
   },
   "earnings": {
     "title": "Earnings",
@@ -116,5 +129,51 @@
     "enabled": "Enabled",
     "not_set": "Not Set",
     "version_text": "City Market Courier v{{version}}"
+  },
+  "terms": {
+    "title": "Terms and Conditions",
+    "lastUpdated": "Last updated: April 2025",
+    "intro": "Welcome to CityMarket Courier. By using this app, you agree to be bound by the following terms and conditions governing your work as a courier partner. Please read them carefully.",
+    "sections": [
+      {
+        "heading": "Acceptance of Terms",
+        "body": "By accessing and using the CityMarket Courier app, you accept and agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use the app."
+      },
+      {
+        "heading": "Courier Eligibility",
+        "body": "You must be of legal working age, hold a valid driving license (where applicable), and have legal authorization to work in your country. You are responsible for ensuring your vehicle meets all applicable safety and legal requirements."
+      },
+      {
+        "heading": "Service Standards",
+        "body": "You agree to provide professional, timely, and courteous delivery services. You must handle all packages with care, follow the designated delivery routes, and communicate promptly with customers and support staff."
+      },
+      {
+        "heading": "Earnings and Payments",
+        "body": "Your earnings are calculated based on completed deliveries and applicable bonuses. Payments are processed on a regular schedule as detailed in your courier agreement. CityMarket reserves the right to adjust rates with prior notice."
+      },
+      {
+        "heading": "Code of Conduct",
+        "body": "You agree to treat customers and vendor staff with respect, maintain personal hygiene and professional appearance, and adhere to all traffic and safety laws. Any misconduct may result in account suspension or termination."
+      },
+      {
+        "heading": "Account Responsibilities",
+        "body": "You are solely responsible for maintaining the security of your account. Do not share your credentials with any other person. Report any suspicious activity to support immediately."
+      },
+      {
+        "heading": "Termination",
+        "body": "CityMarket may suspend or terminate your courier account for violations of these terms, fraudulent activity, or consistent failure to meet service standards. You may also deactivate your account at any time."
+      },
+      {
+        "heading": "Changes to Terms",
+        "body": "CityMarket reserves the right to update these Terms and Conditions at any time. You will be notified of significant changes, and continued use of the app constitutes acceptance of the revised terms."
+      }
+    ],
+    "closing": "By tapping \"Accept & Continue\", you confirm that you have read, understood, and agree to these Terms and Conditions.",
+    "accept": "Accept & Continue",
+    "decline": "Decline",
+    "declineTitle": "Decline Terms",
+    "declineMessage": "You must accept the Terms and Conditions to use CityMarket Courier. If you decline, the app will close.",
+    "exitApp": "Exit App",
+    "scrollHint": "Please scroll down to read all terms before accepting"
   }
 }

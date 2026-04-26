@@ -15,6 +15,7 @@ import {
 } from 'lucide-react-native';
 import { TouchableOpacity, Platform } from 'react-native';
 import { theme } from '../theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -22,8 +23,11 @@ import DeliveriesScreen from '../screens/DeliveriesScreen';
 import EarningsScreen from '../screens/EarningsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SplashScreen from '../screens/SplashScreen';
+import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
 
 import { useAuth } from '../app/AuthContext';
+
+const TERMS_ACCEPTED_KEY = '@citymarket_courier_terms_accepted';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -98,6 +102,7 @@ const MainTabNavigator = () => {
 const RootNavigator = () => {
   const { userToken, isLoading } = useAuth();
   const [showSplash, setShowSplash] = React.useState(true);
+  const [termsAccepted, setTermsAccepted] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -106,8 +111,23 @@ const RootNavigator = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  if (showSplash || isLoading) {
+  React.useEffect(() => {
+    AsyncStorage.getItem(TERMS_ACCEPTED_KEY).then(value => {
+      setTermsAccepted(value === 'true');
+    });
+  }, []);
+
+  const handleAcceptTerms = async () => {
+    await AsyncStorage.setItem(TERMS_ACCEPTED_KEY, 'true');
+    setTermsAccepted(true);
+  };
+
+  if (showSplash || isLoading || termsAccepted === null) {
     return <SplashScreen />;
+  }
+
+  if (!termsAccepted) {
+    return <TermsAndConditionsScreen onAccept={handleAcceptTerms} />;
   }
 
   return (

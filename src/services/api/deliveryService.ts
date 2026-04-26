@@ -1,12 +1,20 @@
 import apiClient from './apiClient';
-import { ApiResponse, Courier, Delivery, DeliveryStatus, UpdateDeliveryStatusDto } from '@city-market/shared';
+import {
+  ApiResponse,
+  Courier,
+  Delivery,
+  UpdateDeliveryStatusDto,
+} from '@city-market/shared';
 
 export const DeliveryService = {
   getProfile: async () => {
-    const response = await apiClient.get<ApiResponse<Courier>>('/delivery/couriers/me');
+    const response = await apiClient.get<ApiResponse<Courier>>(
+      '/delivery/couriers/me',
+    );
     return response.data?.data;
   },
-  updateAvailability: async (courierId: string, isAvailable: boolean) => { // Renamed parameter to isAvailable
+  updateAvailability: async (courierId: string, isAvailable: boolean) => {
+    // Renamed parameter to isAvailable
     const response = await apiClient.patch<ApiResponse<null>>(
       `/delivery/couriers/${courierId}/availability`,
       { isAvailable }, // Corrected parameter name
@@ -14,21 +22,34 @@ export const DeliveryService = {
     return response.data?.data;
   },
   getPendingDeliveries: async () => {
-    const response = await apiClient.get<ApiResponse<Delivery[]>>('/delivery/deliveries/pending');
+    const response = await apiClient.get<ApiResponse<Delivery[]>>(
+      '/delivery/deliveries/pending',
+    );
     return response.data?.data;
   },
   getMyDeliveries: async () => {
-    const response = await apiClient.get<ApiResponse<Delivery[]>>('/delivery/deliveries/my-deliveries'); // Corrected endpoint
+    const response = await apiClient.get<ApiResponse<Delivery[]>>(
+      '/delivery/deliveries/my-deliveries',
+    ); // Corrected endpoint
     return response.data?.data;
   },
   getDeliveryById: async (id: string) => {
-    const response = await apiClient.get<ApiResponse<Delivery>>(`/delivery/deliveries/${id}`);
+    const response = await apiClient.get<ApiResponse<Delivery>>(
+      `/delivery/deliveries/${id}`,
+    );
     return response.data?.data;
   },
-  updateStatus: async (id: string, updateDto: UpdateDeliveryStatusDto) => { // Using UpdateDeliveryStatusDto
+  updateStatus: async (id: string, updateDto: UpdateDeliveryStatusDto) => {
     const response = await apiClient.patch<ApiResponse<null>>(
       `/delivery/deliveries/${id}/status`,
-      updateDto, // Pass the DTO
+      updateDto,
+    );
+    return response.data?.data;
+  },
+  cancelByCourier: async (id: string, reason: string) => {
+    const response = await apiClient.patch<ApiResponse<null>>(
+      `/delivery/deliveries/${id}/cancel-by-courier`,
+      { reason },
     );
     return response.data?.data;
   },
