@@ -53,4 +53,18 @@ export const DeliveryService = {
     );
     return response.data?.data;
   },
+
+  getCourierPendingEarnings: async (courierId: string) => {
+    const response = await apiClient.get<ApiResponse<any>>(
+      `/delivery/courier-settlements/courier/${courierId}/pending`,
+    );
+    return response.data?.data;
+  },
+
+  getCourierSettlements: async (courierId: string, limit = 10, offset = 0) => {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `/delivery/courier-settlements?courierId=${courierId}&limit=${limit}&offset=${offset}`,
+    );
+    return response.data?.data;
+  },
 };

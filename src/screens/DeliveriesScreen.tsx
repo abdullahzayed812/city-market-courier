@@ -66,7 +66,7 @@ const DeliveriesScreen = () => {
     queryFn: DeliveryService.getMyDeliveries,
   });
 
-  console.log(myDeliveries);
+  // console.log(myDeliveries);
 
   const { socket } = useSocket();
 
@@ -90,8 +90,11 @@ const DeliveriesScreen = () => {
       id,
       status,
       vendorOrderId,
-    }: { id: string; status: DeliveryStatus; vendorOrderId: string }) =>
-      DeliveryService.updateStatus(id, { status, vendorOrderId }),
+    }: {
+      id: string;
+      status: DeliveryStatus;
+      vendorOrderId: string;
+    }) => DeliveryService.updateStatus(id, { status, vendorOrderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
       queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
@@ -164,7 +167,12 @@ const DeliveriesScreen = () => {
     vendorOrderId: string,
     customerOrderId: string,
   ) => {
-    setSelectedDelivery({ id, status: currentStatus, vendorOrderId, customerOrderId });
+    setSelectedDelivery({
+      id,
+      status: currentStatus,
+      vendorOrderId,
+      customerOrderId,
+    });
     setModalVisible(true);
   };
 
@@ -360,7 +368,7 @@ const DeliveriesScreen = () => {
             {/* Countdown badge */}
             {inCallWindow && countdown && (
               <View style={styles.countdownBadge}>
-                <Clock size={13} color="#FF9500" />
+                <Clock size={16} color="#FF9500" />
                 <Text style={styles.countdownBadgeText}>
                   {t('deliveries.call_window_label')}: {countdown}
                 </Text>
@@ -370,38 +378,61 @@ const DeliveriesScreen = () => {
             {/* Primary row: Confirm Pickup + Call Customer */}
             <View style={styles.assignedButtonRow}>
               <TouchableOpacity
-                style={[styles.confirmPickupButton, statusMutation.isPending && styles.disabledButton]}
+                style={[
+                  styles.confirmPickupButton,
+                  statusMutation.isPending && styles.disabledButton,
+                ]}
                 onPress={() =>
-                  handleUpdateStatus(item.id, item.status, item.vendorOrderId || '', item.customerOrderId || '')
+                  handleUpdateStatus(
+                    item.id,
+                    item.status,
+                    item.vendorOrderId || '',
+                    item.customerOrderId || '',
+                  )
                 }
                 disabled={statusMutation.isPending}
               >
                 {statusMutation.isPending ? (
                   <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
-                  <Text style={styles.confirmPickupText}>{t('deliveries.confirm_pickup')}</Text>
+                  <Text style={styles.confirmPickupText}>
+                    {t('deliveries.confirm_pickup')}
+                  </Text>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.callButtonSmall, !item.customerPhone && styles.disabledButton]}
-                onPress={() => item.customerPhone && Linking.openURL(`tel:${item.customerPhone}`)}
+                style={[
+                  styles.callButtonSmall,
+                  !item.customerPhone && styles.disabledButton,
+                ]}
+                onPress={() =>
+                  item.customerPhone &&
+                  Linking.openURL(`tel:${item.customerPhone}`)
+                }
                 disabled={!item.customerPhone}
               >
                 <Phone size={16} color={theme.colors.white} />
-                <Text style={styles.callButtonSmallText}>{t('deliveries.call_customer')}</Text>
+                <Text style={styles.callButtonSmallText}>
+                  {t('deliveries.call_customer')}
+                </Text>
               </TouchableOpacity>
             </View>
 
             {/* Cancel button — only after window expires */}
             {!inCallWindow && (
               <TouchableOpacity
-                style={[styles.cancelDeliveryButton, cancelMutation.isPending && styles.disabledButton]}
+                style={[
+                  styles.cancelDeliveryButton,
+                  cancelMutation.isPending && styles.disabledButton,
+                ]}
                 onPress={() => handleOpenCancelModal(item.id)}
                 disabled={cancelMutation.isPending}
               >
                 <XCircle size={16} color={theme.colors.error} />
-                <Text style={styles.cancelDeliveryText}>{t('deliveries.cancel_delivery')}</Text>
+                <Text style={styles.cancelDeliveryText}>
+                  {t('deliveries.cancel_delivery')}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -409,9 +440,17 @@ const DeliveriesScreen = () => {
 
         {!isCompleted && item.status !== DeliveryStatus.ASSIGNED && (
           <TouchableOpacity
-            style={[styles.actionButton, statusMutation.isPending && styles.disabledButton]}
+            style={[
+              styles.actionButton,
+              statusMutation.isPending && styles.disabledButton,
+            ]}
             onPress={() =>
-              handleUpdateStatus(item.id, item.status, item.vendorOrderId || '', item.customerOrderId || '')
+              handleUpdateStatus(
+                item.id,
+                item.status,
+                item.vendorOrderId || '',
+                item.customerOrderId || '',
+              )
             }
             disabled={statusMutation.isPending}
           >
@@ -419,7 +458,9 @@ const DeliveriesScreen = () => {
               <ActivityIndicator color={theme.colors.white} />
             ) : (
               <>
-                <Text style={styles.actionButtonText}>{getNextStatusLabel(item.status, t)}</Text>
+                <Text style={styles.actionButtonText}>
+                  {getNextStatusLabel(item.status, t)}
+                </Text>
                 <ChevronRight
                   size={20}
                   color={theme.colors.white}
@@ -601,17 +642,29 @@ const DeliveriesScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View style={[styles.alertIconContainer, { backgroundColor: theme.colors.error + '15' }]}>
+              <View
+                style={[
+                  styles.alertIconContainer,
+                  { backgroundColor: theme.colors.error + '15' },
+                ]}
+              >
                 <XCircle size={24} color={theme.colors.error} />
               </View>
-              <Text style={styles.modalTitle}>{t('deliveries.cancel_delivery_title')}</Text>
-              <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={styles.closeButton}>
+              <Text style={styles.modalTitle}>
+                {t('deliveries.cancel_delivery_title')}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setCancelModalVisible(false)}
+                style={styles.closeButton}
+              >
                 <X size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalDescription}>{t('deliveries.cancel_delivery_body')}</Text>
+              <Text style={styles.modalDescription}>
+                {t('deliveries.cancel_delivery_body')}
+              </Text>
 
               {CANCEL_REASONS.map(reasonKey => (
                 <TouchableOpacity
@@ -625,7 +678,8 @@ const DeliveriesScreen = () => {
                   <View
                     style={[
                       styles.radioCircle,
-                      selectedReason === reasonKey && styles.radioCircleSelected,
+                      selectedReason === reasonKey &&
+                        styles.radioCircleSelected,
                     ]}
                   />
                   <Text
@@ -659,13 +713,16 @@ const DeliveriesScreen = () => {
                 onPress={() => setCancelModalVisible(false)}
                 disabled={cancelMutation.isPending}
               >
-                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                <Text style={styles.cancelButtonText}>
+                  {t('common.cancel')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
                   { backgroundColor: theme.colors.error },
-                  (!selectedReason || cancelMutation.isPending) && styles.disabledButton,
+                  (!selectedReason || cancelMutation.isPending) &&
+                    styles.disabledButton,
                 ]}
                 onPress={handleConfirmCancel}
                 disabled={!selectedReason || cancelMutation.isPending}
@@ -673,7 +730,9 @@ const DeliveriesScreen = () => {
                 {cancelMutation.isPending ? (
                   <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>{t('deliveries.cancel_confirm')}</Text>
+                  <Text style={styles.confirmButtonText}>
+                    {t('deliveries.cancel_confirm')}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -811,7 +870,7 @@ const styles = StyleSheet.create({
     borderColor: '#FF9500' + '30',
   },
   countdownBadgeText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#FF9500',
     marginStart: 5,

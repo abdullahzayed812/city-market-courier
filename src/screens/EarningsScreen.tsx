@@ -6,7 +6,6 @@ import {
   FlatList,
   ActivityIndicator,
   StatusBar,
-  TouchableOpacity,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -15,38 +14,59 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
 import { theme } from '../theme';
 
+const useAuthCourierId = () => {
+  const { data: profile } = useQuery({
+    queryKey: ['courierProfile'],
+    queryFn: DeliveryService.getProfile,
+  });
+  return profile?.id ?? null;
+};
+
+const StatusBadge = ({ status }: { status: string }) => (
+  <View style={[styles.badge, status === 'PAID' ? styles.badgePaid : styles.badgePending]}>
+    <Text style={[styles.badgeText, status === 'PAID' ? styles.badgeTextPaid : styles.badgeTextPending]}>
+      {status}
+    </Text>
+  </View>
+);
+
 const EarningsScreen = () => {
   const { t } = useTranslation();
+  const courierId = useAuthCourierId();
 
-  const { data: deliveries, isLoading } = useQuery({
-    queryKey: ['myDeliveriesHistory'],
-    queryFn: DeliveryService.getMyDeliveries,
+  const { data: pendingData, isLoading: isPendingLoading } = useQuery({
+    queryKey: ['courierPendingEarnings', courierId],
+    queryFn: () => DeliveryService.getCourierPendingEarnings(courierId!),
+    enabled: !!courierId,
   });
 
-  const completedDeliveries =
-    deliveries?.filter((d: any) => d.status === 'DELIVERED') || [];
-  const totalEarnings = completedDeliveries.length * 15.0;
+  const { data: settlements, isLoading: isSettlementsLoading } = useQuery({
+    queryKey: ['courierSettlements', courierId],
+    queryFn: () => DeliveryService.getCourierSettlements(courierId!),
+    enabled: !!courierId,
+  });
 
-  const renderHistoryItem = ({ item }: { item: any }) => (
+  const isLoading = isPendingLoading || isSettlementsLoading || !courierId;
+
+  const renderSettlementItem = ({ item }: { item: any }) => (
     <View style={styles.historyCard}>
       <View style={styles.historyInfo}>
         <View style={styles.iconCircle}>
-          <Wallet size={18} color={theme.colors.primary} />
+          <TrendingUp size={18} color={theme.colors.success} />
         </View>
         <View>
-          <Text style={styles.orderText}>
-            Order #{item.customerOrderId?.slice(-6)}
+          <Text style={styles.cardTitle}>
+            {new Date(item.periodStart).toLocaleDateString()} – {new Date(item.periodEnd).toLocaleDateString()}
           </Text>
           <View style={styles.dateRow}>
             <Calendar size={12} color={theme.colors.textMuted} />
-            <Text style={styles.dateText}>
-              {new Date(item.updatedAt).toLocaleDateString()}
-            </Text>
+            <Text style={styles.dateText}>{item.deliveryCount} {t('earnings.deliveries', 'deliveries')}</Text>
           </View>
         </View>
       </View>
-      <View style={styles.amountBadge}>
-        <Text style={styles.amountText}>+$15.00</Text>
+      <View style={styles.amountContainer}>
+        <Text style={styles.amountText}>EGP {Number(item.netPayout).toLocaleString()}</Text>
+        <StatusBadge status={item.status} />
       </View>
     </View>
   );
@@ -61,57 +81,40 @@ const EarningsScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={theme.colors.primary}
-      />
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
       <View style={styles.container}>
         <View style={styles.mainHeader}>
-          <Text style={styles.headerTitle}>{t('earnings.title')}</Text>
+          <Text style={styles.headerTitle}>{t('earnings.title', 'Earnings')}</Text>
           <View style={styles.totalCard}>
-            <Text style={styles.totalLabel}>{t('earnings.total_balance')}</Text>
-            <Text style={styles.totalValue}>${totalEarnings.toFixed(2)}</Text>
+            <Text style={styles.totalLabel}>{t('earnings.pending_payout', 'Pending Payout')}</Text>
+            <Text style={styles.totalValue}>EGP {(pendingData?.netPayout || 0).toLocaleString()}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('deliveries.title')}</Text>
-                <Text style={styles.statValue}>
-                  {completedDeliveries.length}
-                </Text>
+                <Text style={styles.statLabel}>{t('earnings.unsettled', 'Unsettled')}</Text>
+                <Text style={styles.statValue}>{pendingData?.unsettledDeliveries || 0}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('earnings.this_week')}</Text>
-                <Text style={styles.statValue}>$0.00</Text>
+                <Text style={styles.statLabel}>{t('earnings.delivery_fees', 'Fees')}</Text>
+                <Text style={styles.statValue}>EGP {(pendingData?.totalDeliveryFees || 0).toLocaleString()}</Text>
               </View>
             </View>
           </View>
         </View>
 
         <View style={styles.content}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {t('earnings.transactional_history')}
-            </Text>
-            <TouchableOpacity>
-              <Text style={styles.filterText}>{t('common.filter')}</Text>
-            </TouchableOpacity>
-          </View>
-
+          <Text style={styles.sectionTitle}>{t('earnings.settlement_history', 'Settlement History')}</Text>
           <FlatList
-            data={completedDeliveries}
-            renderItem={renderHistoryItem}
-            keyExtractor={item => item.id}
+            data={settlements}
+            renderItem={renderSettlementItem}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <TrendingUp size={64} color={theme.colors.surface} />
-                <Text style={styles.emptyText}>
-                  {t('earnings.no_earnings_history')}
-                </Text>
-                <Text style={styles.emptySubText}>
-                  {t('earnings.complete_deliveries_hint')}
-                </Text>
+                <Wallet size={56} color={theme.colors.surface} />
+                <Text style={styles.emptyText}>{t('earnings.no_earnings_history', 'No settlements yet')}</Text>
+                <Text style={styles.emptySubText}>{t('earnings.complete_deliveries_hint', 'Complete deliveries to earn')}</Text>
               </View>
             }
           />
@@ -124,12 +127,7 @@ const EarningsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.primary },
   container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
   mainHeader: {
     backgroundColor: theme.colors.primary,
     padding: theme.spacing.lg,
@@ -137,71 +135,23 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.white,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: theme.colors.white, marginBottom: 16, textAlign: 'center' },
   totalCard: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.xl,
-    padding: 25,
+    padding: 22,
     alignItems: 'center',
     ...theme.shadows.heavy,
   },
-  totalLabel: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  totalValue: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginVertical: 10,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'center',
-    marginTop: 15,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.background,
-  },
+  totalLabel: { fontSize: 12, color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  totalValue: { fontSize: 36, fontWeight: 'bold', color: theme.colors.primary, marginVertical: 8 },
+  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colors.background },
   statItem: { alignItems: 'center', flex: 1 },
-  statDivider: {
-    width: 1,
-    height: '100%',
-    backgroundColor: theme.colors.background,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.secondary,
-    marginTop: 4,
-  },
+  statDivider: { width: 1, backgroundColor: theme.colors.background },
+  statLabel: { fontSize: 10, color: theme.colors.textMuted, textTransform: 'uppercase' },
+  statValue: { fontSize: 14, fontWeight: 'bold', color: theme.colors.secondary, marginTop: 3 },
   content: { flex: 1, padding: theme.spacing.lg, marginTop: -20 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  filterText: { color: theme.colors.secondary, fontWeight: 'bold' },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 14 },
   listContent: { paddingBottom: 20 },
   historyCard: {
     backgroundColor: theme.colors.white,
@@ -213,7 +163,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     ...theme.shadows.soft,
   },
-  historyInfo: { flexDirection: 'row', alignItems: 'center' },
+  historyInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   iconCircle: {
     width: 40,
     height: 40,
@@ -223,33 +173,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginEnd: 12,
   },
-  orderText: { fontSize: 15, fontWeight: 'bold', color: theme.colors.primary },
-  dateRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  cardTitle: { fontSize: 14, fontWeight: 'bold', color: theme.colors.primary },
+  dateRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
   dateText: { fontSize: 12, color: theme.colors.textMuted, marginStart: 4 },
-  amountBadge: {
-    backgroundColor: theme.colors.success + '15',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: theme.radius.sm,
-  },
-  amountText: { fontSize: 14, fontWeight: 'bold', color: theme.colors.success },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  emptySubText: {
-    marginTop: 4,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
+  amountContainer: { alignItems: 'flex-end' },
+  amountText: { fontSize: 15, fontWeight: 'bold', color: theme.colors.success },
+  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, marginTop: 4 },
+  badgePaid: { backgroundColor: '#d1fae5' },
+  badgePending: { backgroundColor: '#fef3c7' },
+  badgeText: { fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase' },
+  badgeTextPaid: { color: '#065f46' },
+  badgeTextPending: { color: '#92400e' },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
+  emptyText: { marginTop: 14, fontSize: 15, fontWeight: 'bold', color: theme.colors.primary },
+  emptySubText: { marginTop: 4, fontSize: 12, color: theme.colors.textMuted, textAlign: 'center' },
 });
 
 export default EarningsScreen;
