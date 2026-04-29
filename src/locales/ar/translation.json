@@ -66,6 +66,7 @@
     "status_on_the_way": "في الطريق",
     "status_delivered": "تم التوصيل",
     "status_cancelled": "ملغي",
+    "status_failed": "فشل",
     "details": "تفاصيل الطلب",
     "customer": "العميل",
     "address": "العنوان",
@@ -101,7 +102,9 @@
     "cancel_reason_wrong_address": "العنوان غير صحيح",
     "cancel_reason_other": "أخرى",
     "cancel_reason_placeholder": "اكتب السبب...",
-    "cancel_confirm": "تأكيد الإلغاء"
+    "cancel_confirm": "تأكيد الإلغاء",
+    "items_price": "سعر المنتجات",
+    "delivery_fee": "رسوم التوصيل"
   },
   "earnings": {
     "title": "الأرباح",

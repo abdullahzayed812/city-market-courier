@@ -66,6 +66,7 @@
     "status_on_the_way": "On the Way",
     "status_delivered": "Delivered",
     "status_cancelled": "Cancelled",
+    "status_failed": "Failed",
     "details": "Delivery Details",
     "customer": "Customer",
     "address": "Address",
@@ -101,7 +102,9 @@
     "cancel_reason_wrong_address": "Wrong address",
     "cancel_reason_other": "Other",
     "cancel_reason_placeholder": "Describe the reason...",
-    "cancel_confirm": "Confirm Cancellation"
+    "cancel_confirm": "Confirm Cancellation",
+    "items_price": "Items price",
+    "delivery_fee": "Delivery fee"
   },
   "earnings": {
     "title": "Earnings",

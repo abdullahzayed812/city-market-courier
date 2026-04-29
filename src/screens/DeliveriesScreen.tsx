@@ -66,8 +66,6 @@ const DeliveriesScreen = () => {
     queryFn: DeliveryService.getMyDeliveries,
   });
 
-  // console.log(myDeliveries);
-
   const { socket } = useSocket();
 
   useEffect(() => {
@@ -132,6 +130,7 @@ const DeliveriesScreen = () => {
   }, [myDeliveries]);
 
   const [now, setNow] = useState(() => Date.now());
+
   useEffect(() => {
     const hasAssigned = (myDeliveries || []).some(
       d => d.status === DeliveryStatus.ASSIGNED && d.assignedWindowExpiry,
@@ -235,6 +234,11 @@ const DeliveriesScreen = () => {
         return {
           color: theme.colors.success,
           label: t('deliveries.status_delivered'),
+        };
+      case DeliveryStatus.FAILED:
+        return {
+          color: theme.colors.error,
+          label: t('deliveries.status_failed'),
         };
       default:
         return {
@@ -349,11 +353,27 @@ const DeliveriesScreen = () => {
             </View>
           ))}
 
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-              {t('deliveries.total_price')}: {totalPrice?.toFixed(2)}{' '}
-              {t('common.currency')}
-            </Text>
+          <View style={styles.priceSummary}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>{t('deliveries.items_price')}</Text>
+              <Text style={styles.priceValue}>
+                {totalPrice?.toFixed(2)} {t('common.currency')}
+              </Text>
+            </View>
+            {item.deliveryFee != null && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>{t('deliveries.delivery_fee')}</Text>
+                <Text style={styles.priceValue}>
+                  {item.deliveryFee.toFixed(2)} {t('common.currency')}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.priceRow, styles.priceTotalRow]}>
+              <Text style={styles.priceTotalLabel}>{t('deliveries.total_price')}</Text>
+              <Text style={styles.priceTotalValue}>
+                {(totalPrice + (item.deliveryFee || 0)).toFixed(2)} {t('common.currency')}
+              </Text>
+            </View>
           </View>
 
           {(!item.vendorOrders || item.vendorOrders.length === 0) && (
@@ -1043,6 +1063,43 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textMuted,
     marginStart: 10,
+  },
+  priceSummary: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: 10,
+    gap: 6,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  priceValue: {
+    fontSize: 13,
+    color: theme.colors.text,
+    fontWeight: '500',
+  },
+  priceTotalRow: {
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  priceTotalLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  priceTotalValue: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
   },
 
   // Modal Styles
