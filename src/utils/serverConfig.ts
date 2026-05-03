@@ -18,10 +18,10 @@ export const setServerIP = async (ip: string): Promise<void> => {
 
 export const getApiBaseURL = async (): Promise<string> => {
   const ip = await getServerIP();
-  return `http://${ip}:3000/api/v1`;
+  return `http://${ip}/api/v1`;
 };
 
 export const getSocketURL = async (): Promise<string> => {
   const ip = await getServerIP();
-  return `http://${ip}:3009`;
+  return `http://${ip}`;
 };
