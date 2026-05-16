@@ -27,11 +27,12 @@ export const DeliveryService = {
     );
     return response.data?.data;
   },
-  getMyDeliveries: async () => {
-    const response = await apiClient.get<ApiResponse<Delivery[]>>(
+  getMyDeliveries: async (page: number) => {
+    const response = await apiClient.get<ApiResponse<{ items: Delivery[]; hasNextPage: boolean }>>(
       '/delivery/deliveries/my-deliveries',
-    ); // Corrected endpoint
-    return response.data?.data;
+      { params: { page, limit: 20 } },
+    );
+    return response.data.data!;
   },
   getDeliveryById: async (id: string) => {
     const response = await apiClient.get<ApiResponse<Delivery>>(

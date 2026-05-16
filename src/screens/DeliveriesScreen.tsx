@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,14 @@ import {
   Linking,
   TextInput,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   Package,
   MapPin,
@@ -58,12 +63,20 @@ const DeliveriesScreen = () => {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [customReason, setCustomReason] = useState('');
 
-  const { data: myDeliveries, isLoading: myLoading } = useQuery<
-    Delivery[] | undefined
-  >({
-    // Use Delivery[]
+  const {
+    data,
+    isLoading: myLoading,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['myDeliveries'],
-    queryFn: DeliveryService.getMyDeliveries,
+    queryFn: ({ pageParam }) => DeliveryService.getMyDeliveries(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPage.hasNextPage ? lastPageParam + 1 : undefined,
   });
 
   const { socket } = useSocket();
@@ -115,7 +128,8 @@ const DeliveriesScreen = () => {
   });
 
   const deliveriesWithTotal = useMemo(() => {
-    return (myDeliveries || []).map(d => ({
+    const myDeliveries = data?.pages.flatMap(p => p.items ?? []) ?? [];
+    return myDeliveries.map(d => ({
       ...d,
       computedTotal:
         d.vendorOrders?.reduce((total: number, vo: any) => {
@@ -127,38 +141,7 @@ const DeliveriesScreen = () => {
           );
         }, 0) || 0,
     }));
-  }, [myDeliveries]);
-
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const hasAssigned = (myDeliveries || []).some(
-      d => d.status === DeliveryStatus.ASSIGNED && d.assignedWindowExpiry,
-    );
-    if (!hasAssigned) return;
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [myDeliveries]);
-
-  const getAssignedWindowCountdown = useCallback(
-    (expiry: Date | string | undefined): string | null => {
-      if (!expiry) return null;
-      const diff = Math.max(0, new Date(expiry).getTime() - now);
-      if (diff === 0) return null;
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    },
-    [now],
-  );
-
-  const isWithinAssignedWindow = useCallback(
-    (expiry: Date | string | undefined): boolean => {
-      if (!expiry) return false;
-      return new Date(expiry).getTime() > now;
-    },
-    [now],
-  );
+  }, [data]);
 
   const handleUpdateStatus = (
     id: string,
@@ -251,12 +234,6 @@ const DeliveriesScreen = () => {
   const renderDeliveryItem = ({ item }: { item: Delivery }) => {
     const statusConfig = getStatusConfig(item.status);
     const isCompleted = item.status === DeliveryStatus.DELIVERED;
-    const inCallWindow =
-      item.status === DeliveryStatus.ASSIGNED &&
-      isWithinAssignedWindow(item.assignedWindowExpiry);
-    const countdown = inCallWindow
-      ? getAssignedWindowCountdown(item.assignedWindowExpiry)
-      : null;
 
     const totalPrice = item.computedTotal;
 
@@ -355,23 +332,30 @@ const DeliveriesScreen = () => {
 
           <View style={styles.priceSummary}>
             <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>{t('deliveries.items_price')}</Text>
+              <Text style={styles.priceLabel}>
+                {t('deliveries.items_price')}
+              </Text>
               <Text style={styles.priceValue}>
                 {totalPrice?.toFixed(2)} {t('common.currency')}
               </Text>
             </View>
             {item.deliveryFee != null && (
               <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>{t('deliveries.delivery_fee')}</Text>
+                <Text style={styles.priceLabel}>
+                  {t('deliveries.delivery_fee')}
+                </Text>
                 <Text style={styles.priceValue}>
                   {item.deliveryFee.toFixed(2)} {t('common.currency')}
                 </Text>
               </View>
             )}
             <View style={[styles.priceRow, styles.priceTotalRow]}>
-              <Text style={styles.priceTotalLabel}>{t('deliveries.total_price')}</Text>
+              <Text style={styles.priceTotalLabel}>
+                {t('deliveries.total_price')}
+              </Text>
               <Text style={styles.priceTotalValue}>
-                {(totalPrice + (item.deliveryFee || 0)).toFixed(2)} {t('common.currency')}
+                {(totalPrice || 0 + (item.deliveryFee || 0)).toFixed(2)}{' '}
+                {t('common.currency')}
               </Text>
             </View>
           </View>
@@ -385,16 +369,6 @@ const DeliveriesScreen = () => {
 
         {item.status === DeliveryStatus.ASSIGNED && (
           <View style={styles.assignedActions}>
-            {/* Countdown badge */}
-            {inCallWindow && countdown && (
-              <View style={styles.countdownBadge}>
-                <Clock size={16} color="#FF9500" />
-                <Text style={styles.countdownBadgeText}>
-                  {t('deliveries.call_window_label')}: {countdown}
-                </Text>
-              </View>
-            )}
-
             {/* Primary row: Confirm Pickup + Call Customer */}
             <View style={styles.assignedButtonRow}>
               <TouchableOpacity
@@ -439,22 +413,19 @@ const DeliveriesScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Cancel button — only after window expires */}
-            {!inCallWindow && (
-              <TouchableOpacity
-                style={[
-                  styles.cancelDeliveryButton,
-                  cancelMutation.isPending && styles.disabledButton,
-                ]}
-                onPress={() => handleOpenCancelModal(item.id)}
-                disabled={cancelMutation.isPending}
-              >
-                <XCircle size={16} color={theme.colors.error} />
-                <Text style={styles.cancelDeliveryText}>
-                  {t('deliveries.cancel_delivery')}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.cancelDeliveryButton,
+                cancelMutation.isPending && styles.disabledButton,
+              ]}
+              onPress={() => handleOpenCancelModal(item.id)}
+              disabled={cancelMutation.isPending}
+            >
+              <XCircle size={16} color={theme.colors.error} />
+              <Text style={styles.cancelDeliveryText}>
+                {t('deliveries.cancel_delivery')}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -528,6 +499,25 @@ const DeliveriesScreen = () => {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={theme.colors.primary}
+            />
+          }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator
+                style={{ paddingVertical: 16 }}
+                color={theme.colors.primary}
+              />
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Navigation size={64} color={theme.colors.surface} />
