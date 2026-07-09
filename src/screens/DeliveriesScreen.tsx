@@ -35,8 +35,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
 import { useSocket } from '../app/SocketContext';
+import { useSlaCountdown } from '../hooks/useSlaCountdown';
 import { theme } from '../theme';
 import { Delivery, DeliveryStatus, EventType } from '@city-market/shared';
+
+const PickupCountdownBadge = ({ deadline }: { deadline?: Date | string | null }) => {
+  const { remainingSeconds, isExpired, isWarning, formattedTime } = useSlaCountdown(deadline);
+  if (!deadline || isExpired || remainingSeconds === 0) return null;
+  return (
+    <View style={[styles.countdownBadge, isWarning && { backgroundColor: '#fee2e215', borderColor: '#fca5a530' }]}>
+      <Clock size={13} color={isWarning ? '#dc2626' : '#FF9500'} />
+      <Text style={[styles.countdownBadgeText, isWarning && { color: '#dc2626' }]}>
+        {formattedTime}
+      </Text>
+    </View>
+  );
+};
 
 const DeliveriesScreen = () => {
   const { t, i18n } = useTranslation();
@@ -88,7 +102,13 @@ const DeliveriesScreen = () => {
       queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
     };
 
-    const events = [EventType.COURIER_ASSIGNED];
+    const events = [
+      EventType.COURIER_ASSIGNED,
+      EventType.ORDER_PICKED_UP,
+      EventType.ORDER_DELIVERED,
+      EventType.SLA_TIMER_STARTED,
+      EventType.SLA_COURIER_PICKUP_EXPIRED,
+    ];
     events.forEach(event => socket.on(event, handleUpdate));
 
     return () => {
@@ -366,6 +386,10 @@ const DeliveriesScreen = () => {
             </Text>
           )}
         </View>
+
+        {item.status === DeliveryStatus.ASSIGNED && (
+          <PickupCountdownBadge deadline={(item as any).pickupDeadline} />
+        )}
 
         {item.status === DeliveryStatus.ASSIGNED && (
           <View style={styles.assignedActions}>

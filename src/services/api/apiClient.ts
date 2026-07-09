@@ -1,7 +1,9 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import i18n from '../../locales/i18n';
 import { getApiBaseURL } from '../../utils/serverConfig';
+import { SecureStorage } from '../secureStorage';
+import { getDeviceId } from '../../utils/deviceId';
 
 let signOutCallback: (() => void) | null = null;
 export const setSignOutCallback = (fn: () => void) => { signOutCallback = fn; };
@@ -13,7 +15,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async config => {
     if (!config.baseURL) config.baseURL = await getApiBaseURL();
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await SecureStorage.getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
     config.headers['Accept-Language'] = i18n.language || 'ar';
     return config;
@@ -31,7 +33,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
 };
 
 const clearSession = async () => {
-  await AsyncStorage.multiRemove(['auth_token', 'refresh_token', 'user']);
+  await SecureStorage.clearAll();
   signOutCallback?.();
 };
 
@@ -44,7 +46,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const refreshToken = await AsyncStorage.getItem('refresh_token');
+    const refreshToken = await SecureStorage.getRefreshToken();
     if (!refreshToken) {
       await clearSession();
       return Promise.reject(error);
@@ -67,14 +69,15 @@ apiClient.interceptors.response.use(
 
     try {
       const API_URL = await getApiBaseURL();
+      const deviceId = await getDeviceId();
       const { data } = await axios.post(
         `${API_URL}/auth/refresh`,
-        { refreshToken },
+        { refreshToken, deviceId, platform: Platform.OS },
         { headers: { 'Content-Type': 'application/json' } },
       );
       const { accessToken, refreshToken: newRefreshToken } = data.data;
-      await AsyncStorage.setItem('auth_token', accessToken);
-      await AsyncStorage.setItem('refresh_token', newRefreshToken);
+      await SecureStorage.setAccessToken(accessToken);
+      await SecureStorage.setRefreshToken(newRefreshToken);
       processQueue(null, accessToken);
       original.headers.Authorization = `Bearer ${accessToken}`;
       return apiClient(original);

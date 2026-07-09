@@ -20,7 +20,7 @@ import { theme } from '../theme';
 
 const ProfileScreen = () => {
   const { t, i18n } = useTranslation();
-  const { signOut } = useAuth();
+  const { signOut, signOutAllDevices } = useAuth();
   const isRTL = i18n.language === 'ar';
 
   const { data: profile, isLoading } = useQuery({
@@ -30,7 +30,25 @@ const ProfileScreen = () => {
 
   const handleLogout = async () => {
     try {
-      signOut();
+      await signOut();
+      Toast.show({
+        type: 'info',
+        text1: t('common.logged_out'),
+        text2: t('common.see_soon') || t('common.see_you_soon'),
+        position: 'top',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: t('common.logout_failed'),
+        position: 'top',
+      });
+    }
+  };
+
+  const handleLogoutAllDevices = async () => {
+    try {
+      await signOutAllDevices();
       Toast.show({
         type: 'info',
         text1: t('common.logged_out'),
@@ -159,6 +177,13 @@ const ProfileScreen = () => {
             <LogOut size={20} color={theme.colors.error} />
           </View>
           <Text style={styles.logoutText}>{t('common.logout')}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutAllDevices}>
+          <View style={[styles.menuIconContainer, { backgroundColor: theme.colors.error + '10' }]}>
+            <LogOut size={20} color={theme.colors.error} />
+          </View>
+          <Text style={styles.logoutText}>{t('common.logout_all_devices')}</Text>
         </TouchableOpacity>
 
         <View style={styles.footer}>

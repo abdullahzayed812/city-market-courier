@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setSignOutCallback } from '../services/api/apiClient';
+import { AuthService } from '../services/api/authService';
+import { SecureStorage } from '../services/secureStorage';
 
 interface User {
     userId: string;
@@ -16,6 +18,7 @@ interface AuthContextType {
     isLoading: boolean;
     signIn: (user: any, token: string, refreshToken: string) => Promise<void>;
     signOut: () => Promise<void>;
+    signOutAllDevices: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,12 +36,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     useEffect(() => {
-        // Check for stored token on app startup
+        // Check for stored token (Keychain/Keystore, not AsyncStorage) on app startup
         const bootstrapAsync = async () => {
             try {
-                const token = await AsyncStorage.getItem('auth_token');
+                const token = await SecureStorage.getAccessToken();
                 const userData = await AsyncStorage.getItem('user');
-                
+
                 if (token && userData) {
                     setUserToken(token);
                     setUser(JSON.parse(userData));
@@ -53,25 +56,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         bootstrapAsync();
     }, []);
 
+    const clearLocalState = async () => {
+        await SecureStorage.clearAll();
+        await AsyncStorage.removeItem('user');
+        setUserToken(null);
+        setUser(null);
+    };
+
     const authContext = {
         userToken,
         user,
         isAuthenticated: !!userToken,
         isLoading,
         signIn: async (user: any, token: string, refreshToken: string) => {
-            await AsyncStorage.setItem('auth_token', token);
-            await AsyncStorage.setItem('refresh_token', refreshToken);
+            await SecureStorage.setAccessToken(token);
+            await SecureStorage.setRefreshToken(refreshToken);
             await AsyncStorage.setItem('user', JSON.stringify(user));
-            
+
             setUserToken(token);
             setUser(user);
         },
         signOut: async () => {
-            await AsyncStorage.removeItem('auth_token');
-            await AsyncStorage.removeItem('refresh_token');
-            await AsyncStorage.removeItem('user');
-            setUserToken(null);
-            setUser(null);
+            try {
+                await AuthService.logout();
+            } catch {
+                // ignore — we still clear local state
+            }
+            await clearLocalState();
+        },
+        signOutAllDevices: async () => {
+            try {
+                await AuthService.logoutAll();
+            } catch {
+                // ignore — we still clear local state
+            }
+            await clearLocalState();
         },
     };
 

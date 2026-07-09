@@ -6,6 +6,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "logout": "Logout",
+    "logout_all_devices": "Log Out of All Devices",
     "login": "Login",
     "ok": "OK",
     "restart_app": "Please restart the app to apply changes fully.",
