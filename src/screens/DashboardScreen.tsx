@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -9,6 +8,7 @@ import {
   Switch,
   RefreshControl,
 } from 'react-native';
+import { AppText as Text } from '@city-market/mobile-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bike,

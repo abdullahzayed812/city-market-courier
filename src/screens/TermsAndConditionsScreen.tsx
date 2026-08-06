@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
   Alert,
   BackHandler,
 } from 'react-native';
+import { AppText as Text } from '@city-market/mobile-ui';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
 

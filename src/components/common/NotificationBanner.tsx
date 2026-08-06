@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { AppText as Text } from '@city-market/mobile-ui';
 import { Bell } from 'lucide-react-native';
 import { theme } from '../../theme';
 

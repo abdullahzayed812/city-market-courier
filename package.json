@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@city-market/mobile-ui": "file:../shared-ui",
     "@city-market/shared": "file:../../shared",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-firebase/app": "^23.8.6",

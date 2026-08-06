@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { AppText as Text } from '@city-market/mobile-ui';
 import { useTranslation } from 'react-i18next';
 import {
   useInfiniteQuery,

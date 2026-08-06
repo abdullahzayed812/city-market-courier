@@ -31,21 +31,27 @@ export const setServerIP = async (ip: string): Promise<void> => {
   await AsyncStorage.setItem(SERVER_IP_KEY, ip);
 };
 
-export const setServerConfig = async (ip: string, port: string): Promise<void> => {
-  await AsyncStorage.multiSet([[SERVER_IP_KEY, ip], [SERVER_PORT_KEY, port]]);
+export const setServerConfig = async (
+  ip: string,
+  port: string,
+): Promise<void> => {
+  await AsyncStorage.multiSet([
+    [SERVER_IP_KEY, ip],
+    [SERVER_PORT_KEY, port],
+  ]);
 };
 
 const buildBase = (ip: string, port: string): string =>
   port === '80' ? `http://${ip}` : `http://${ip}:${port}`;
 
 export const getApiBaseURL = async (): Promise<string> => {
-  if (!__DEV__) return 'http://citymarket.tech/api/v1';
+  if (!__DEV__) return 'https://citymarket.tech/api/v1';
   const [ip, port] = await Promise.all([getServerIP(), getServerPort()]);
   return `${buildBase(ip, port)}/api/v1`;
 };
 
 export const getSocketURL = async (): Promise<string> => {
-  if (!__DEV__) return 'http://citymarket.tech';
+  if (!__DEV__) return 'https://citymarket.tech';
   const [ip, port] = await Promise.all([getServerIP(), getServerPort()]);
   return buildBase(ip, port);
 };
