@@ -122,7 +122,9 @@ const ProfileScreen = () => {
               <User size={16} color={theme.colors.white} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.nameText}>{profile?.fullName}</Text>
+          <Text style={styles.nameText} numberOfLines={2} adjustsFontSizeToFit>
+            {profile?.fullName}
+          </Text>
           <View style={styles.statusBadge}>
             <View style={[styles.statusDot, { backgroundColor: profile?.isAvailable ? theme.colors.success : theme.colors.error }]} />
             <Text style={styles.statusBadgeText}>
@@ -229,7 +231,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: theme.colors.white,
   },
-  nameText: { fontSize: 24, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 8 },
+  nameText: { fontSize: 24, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 8, textAlign: 'center' },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
