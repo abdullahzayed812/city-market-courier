@@ -42,13 +42,20 @@ const DashboardScreen = ({ navigation }: any) => {
   });
 
   const {
-    data: activeDeliveries,
+    data: myDeliveries,
     isLoading: deliveriesLoading,
+    isFetching: deliveriesFetching,
     refetch: refetchDeliveries,
   } = useQuery({
     queryKey: ['activeDeliveries'],
-    queryFn: () => DeliveryService.getMyDeliveries(),
+    queryFn: () => DeliveryService.getMyDeliveries(1),
   });
+
+  const activeDeliveries = myDeliveries?.items?.filter(
+    (delivery: any) =>
+      delivery.status !== DeliveryStatus.DELIVERED &&
+      delivery.status !== DeliveryStatus.FAILED,
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -100,7 +107,7 @@ const DashboardScreen = ({ navigation }: any) => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
-            refreshing={deliveriesLoading}
+            refreshing={deliveriesFetching}
             onRefresh={refetchDeliveries}
           />
         }

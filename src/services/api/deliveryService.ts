@@ -27,7 +27,7 @@ export const DeliveryService = {
     );
     return response.data?.data;
   },
-  getMyDeliveries: async (page: number) => {
+  getMyDeliveries: async (page: number = 1) => {
     const response = await apiClient.get<ApiResponse<{ items: Delivery[]; hasNextPage: boolean }>>(
       '/delivery/deliveries/my-deliveries',
       { params: { page, limit: 20 } },
