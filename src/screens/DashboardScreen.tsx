@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { DeliveryService } from '../services/api/deliveryService';
 import { useAuth } from '../app/AuthContext';
@@ -48,6 +49,12 @@ const DashboardScreen = ({ navigation }: any) => {
     queryKey: ['activeDeliveries'],
     queryFn: () => DeliveryService.getMyDeliveries(),
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchDeliveries();
+    }, [refetchDeliveries]),
+  );
 
   const updateAvailabilityMutation = useMutation({
     mutationFn: (isAvailable: boolean) =>
