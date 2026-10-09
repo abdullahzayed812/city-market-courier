@@ -6,18 +6,70 @@ import {
   UpdateDeliveryStatusDto,
 } from '@city-market/shared';
 
+export interface MyRatingsResult {
+  summary: { averageRating: number | null; totalRatings: number; distribution: Record<string, number> };
+  items: Array<{ id: string; customerOrderId: string; stars: number; comment: string | null; createdAt: string }>;
+  hasNextPage: boolean;
+}
+
 export const DeliveryService = {
+  // Customer ratings of this courier's deliveries (the server scopes it to the caller)
+  getMyRatings: async () => {
+    const response = await apiClient.get<ApiResponse<MyRatingsResult>>('/delivery/delivery-ratings', { params: { limit: 50 } });
+    return response.data?.data;
+  },
+  registerFreelancer: async (dto: {
+    fullName: string;
+    phone: string;
+    vehicleType: string;
+    licensePlate?: string;
+    nationalIdUrl: string;
+    licenseUrl?: string;
+  }) => {
+    const response = await apiClient.post<ApiResponse<Courier>>(
+      '/delivery/couriers/freelance/register',
+      dto,
+    );
+    return response.data?.data;
+  },
   getProfile: async () => {
     const response = await apiClient.get<ApiResponse<Courier>>(
       '/delivery/couriers/me',
     );
     return response.data?.data;
   },
-  updateAvailability: async (courierId: string, isAvailable: boolean) => {
-    // Renamed parameter to isAvailable
+  updateAvailability: async (isAvailable: boolean) => {
     const response = await apiClient.patch<ApiResponse<null>>(
-      `/delivery/couriers/${courierId}/availability`,
-      { isAvailable }, // Corrected parameter name
+      '/delivery/couriers/me/availability',
+      { isAvailable },
+    );
+    return response.data?.data;
+  },
+  updateLocation: async (latitude: number, longitude: number) => {
+    await apiClient.patch<ApiResponse<null>>('/delivery/couriers/me/location', {
+      latitude,
+      longitude,
+    });
+  },
+  // Freelancers only: unclaimed deliveries near the courier, nearest first
+  getAvailableJobs: async () => {
+    const response = await apiClient.get<
+      ApiResponse<Array<Delivery & { distanceKm: number | null }>>
+    >('/delivery/deliveries/freelance/available');
+    return response.data?.data ?? [];
+  },
+  claimDelivery: async (id: string) => {
+    const response = await apiClient.patch<ApiResponse<null>>(
+      `/delivery/deliveries/${id}/claim`,
+    );
+    return response.data?.data;
+  },
+  // Courier can't make it (before pickup). Not the same as cancelByCourier,
+  // which reports a customer problem and fails the order.
+  releaseDelivery: async (id: string, reason?: string) => {
+    const response = await apiClient.patch<ApiResponse<null>>(
+      `/delivery/deliveries/${id}/release`,
+      { reason },
     );
     return response.data?.data;
   },

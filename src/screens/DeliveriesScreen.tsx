@@ -1,107 +1,38 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  StatusBar,
-  Modal,
-  Linking,
-  TextInput,
-  ScrollView,
-  RefreshControl,
-} from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, RefreshControl } from 'react-native';
 import { AppText as Text } from '@city-market/mobile-ui';
 import { useTranslation } from 'react-i18next';
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
-import {
-  Package,
-  MapPin,
-  ChevronRight,
-  Navigation,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  X,
-  ChevronLeft,
-  Phone,
-  XCircle,
-} from 'lucide-react-native';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { MapPin, Store, ChevronRight, Navigation } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DeliveryService } from '../services/api/deliveryService';
-import { useSocket } from '../app/SocketContext';
-import { useSlaCountdown } from '../hooks/useSlaCountdown';
-import { theme } from '../theme';
 import { Delivery, DeliveryStatus, EventType } from '@city-market/shared';
 
-const PickupCountdownBadge = ({ deadline }: { deadline?: Date | string | null }) => {
-  const { remainingSeconds, isExpired, isWarning, formattedTime } = useSlaCountdown(deadline);
-  if (!deadline || isExpired || remainingSeconds === 0) return null;
-  return (
-    <View style={[styles.countdownBadge, isWarning && { backgroundColor: '#fee2e215', borderColor: '#fca5a530' }]}>
-      <Clock size={13} color={isWarning ? '#dc2626' : '#FF9500'} />
-      <Text style={[styles.countdownBadgeText, isWarning && { color: '#dc2626' }]}>
-        {formattedTime}
-      </Text>
-    </View>
-  );
-};
+import { DeliveryService } from '../services/api/deliveryService';
+import { useSocket } from '../app/SocketContext';
+import { PickupCountdownBadge } from '../components/deliveries/PickupCountdownBadge';
+import { isActiveDelivery, shortOrderId, statusColor, statusLabelKey } from '../features/deliveries/deliveryHelpers';
+import { theme } from '../theme';
 
-const DeliveriesScreen = () => {
+type Tab = 'active' | 'history';
+
+// Compact list; everything else (items, customer, actions) lives on DeliveryDetailsScreen.
+const DeliveriesScreen = ({ navigation }: any) => {
   const { t, i18n } = useTranslation();
-  const queryClient = useQueryClient();
   const isRTL = i18n.language === 'ar';
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
+  const [tab, setTab] = useState<Tab>('active');
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedDelivery, setSelectedDelivery] = useState<{
-    id: string;
-    status: DeliveryStatus;
-    vendorOrderId: string;
-    customerOrderId: string;
-  } | null>(null);
-
-  const CANCEL_REASONS = [
-    'cancel_reason_not_available',
-    'cancel_reason_refused',
-    'cancel_reason_wrong_address',
-    'cancel_reason_other',
-  ] as const;
-
-  const [cancelModalVisible, setCancelModalVisible] = useState(false);
-  const [cancelDeliveryId, setCancelDeliveryId] = useState<string | null>(null);
-  const [selectedReason, setSelectedReason] = useState<string | null>(null);
-  const [customReason, setCustomReason] = useState('');
-
-  const {
-    data,
-    isLoading: myLoading,
-    refetch,
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
+  const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['myDeliveries'],
     queryFn: ({ pageParam }) => DeliveryService.getMyDeliveries(pageParam),
     initialPageParam: 1,
-    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
-      lastPage.hasNextPage ? lastPageParam + 1 : undefined,
+    getNextPageParam: (lastPage, _all, lastPageParam) => (lastPage.hasNextPage ? lastPageParam + 1 : undefined),
   });
-
-  const { socket } = useSocket();
 
   useEffect(() => {
     if (!socket) return;
-
-    const handleUpdate = () => {
-      queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
-    };
-
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
     const events = [
       EventType.COURIER_ASSIGNED,
       EventType.ORDER_PICKED_UP,
@@ -109,396 +40,70 @@ const DeliveriesScreen = () => {
       EventType.SLA_TIMER_STARTED,
       EventType.SLA_COURIER_PICKUP_EXPIRED,
     ];
-    events.forEach(event => socket.on(event, handleUpdate));
-
-    return () => {
-      events.forEach(event => socket.off(event, handleUpdate));
-    };
+    events.forEach(e => socket.on(e, refresh));
+    return () => events.forEach(e => socket.off(e, refresh));
   }, [socket, queryClient]);
 
-  const statusMutation = useMutation({
-    mutationFn: ({
-      id,
-      status,
-      vendorOrderId,
-    }: {
-      id: string;
-      status: DeliveryStatus;
-      vendorOrderId: string;
-    }) => DeliveryService.updateStatus(id, { status, vendorOrderId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
-      queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
-      setModalVisible(false);
-      setSelectedDelivery(null);
-    },
-  });
+  const all = useMemo(() => data?.pages.flatMap(p => p.items ?? []) ?? [], [data]);
+  const deliveries = useMemo(() => all.filter(d => (tab === 'active' ? isActiveDelivery(d) : !isActiveDelivery(d))), [all, tab]);
+  const activeCount = useMemo(() => all.filter(isActiveDelivery).length, [all]);
 
-  const cancelMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      DeliveryService.cancelByCourier(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myDeliveries'] });
-      queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
-      setCancelModalVisible(false);
-      setCancelDeliveryId(null);
-      setSelectedReason(null);
-      setCustomReason('');
-    },
-  });
-
-  const deliveriesWithTotal = useMemo(() => {
-    const myDeliveries = data?.pages.flatMap(p => p.items ?? []) ?? [];
-    return myDeliveries.map(d => ({
-      ...d,
-      computedTotal:
-        d.vendorOrders?.reduce((total: number, vo: any) => {
-          return (
-            total +
-            (vo.items?.reduce((sum: number, i: any) => {
-              return sum + (i.totalPrice || 0);
-            }, 0) || 0)
-          );
-        }, 0) || 0,
-    }));
-  }, [data]);
-
-  const handleUpdateStatus = (
-    id: string,
-    currentStatus: DeliveryStatus,
-    vendorOrderId: string,
-    customerOrderId: string,
-  ) => {
-    setSelectedDelivery({
-      id,
-      status: currentStatus,
-      vendorOrderId,
-      customerOrderId,
-    });
-    setModalVisible(true);
-  };
-
-  const handleOpenCancelModal = (deliveryId: string) => {
-    setCancelDeliveryId(deliveryId);
-    setSelectedReason(null);
-    setCustomReason('');
-    setCancelModalVisible(true);
-  };
-
-  const handleConfirmCancel = () => {
-    if (!cancelDeliveryId || !selectedReason) return;
-    const reason =
-      selectedReason === 'cancel_reason_other'
-        ? customReason.trim() || t(`deliveries.${selectedReason}`)
-        : t(`deliveries.${selectedReason}`);
-    cancelMutation.mutate({ id: cancelDeliveryId, reason });
-  };
-
-  const confirmUpdateStatus = () => {
-    if (!selectedDelivery) return;
-
-    // Use DeliveryStatus
-    let nextStatus: DeliveryStatus | undefined;
-    if (selectedDelivery.status === DeliveryStatus.ASSIGNED)
-      nextStatus = DeliveryStatus.PICKED_UP;
-    else if (selectedDelivery.status === DeliveryStatus.PICKED_UP)
-      nextStatus = DeliveryStatus.ON_THE_WAY;
-    else if (selectedDelivery.status === DeliveryStatus.ON_THE_WAY)
-      nextStatus = DeliveryStatus.DELIVERED;
-
-    if (nextStatus) {
-      statusMutation.mutate({
-        id: selectedDelivery.id,
-        status: nextStatus,
-        vendorOrderId: selectedDelivery.vendorOrderId,
-      });
-    }
-  };
-
-  const getStatusConfig = (status: DeliveryStatus) => {
-    // Use DeliveryStatus
-    switch (status) {
-      case DeliveryStatus.ASSIGNED:
-        return {
-          color: theme.colors.primary,
-          label: t('deliveries.status_assigned'),
-        };
-      case DeliveryStatus.PICKED_UP:
-        return {
-          color: theme.colors.warning,
-          label: t('deliveries.status_picked_up'),
-        };
-      case DeliveryStatus.ON_THE_WAY:
-        return {
-          color: theme.colors.info,
-          label: t('deliveries.status_on_the_way'),
-        };
-      case DeliveryStatus.DELIVERED:
-        return {
-          color: theme.colors.success,
-          label: t('deliveries.status_delivered'),
-        };
-      case DeliveryStatus.FAILED:
-        return {
-          color: theme.colors.error,
-          label: t('deliveries.status_failed'),
-        };
-      default:
-        return {
-          color: theme.colors.textMuted,
-          label: t(`deliveries.status_${status.toLowerCase()}`, status),
-        };
-    }
-  };
-
-  const renderDeliveryItem = ({ item }: { item: Delivery }) => {
-    const statusConfig = getStatusConfig(item.status);
-    const isCompleted = item.status === DeliveryStatus.DELIVERED;
-
-    const totalPrice = item.computedTotal;
-
+  const renderItem = ({ item }: { item: Delivery }) => {
+    const color = statusColor(item.status);
+    const stores = item.pickupLocations ?? [];
     return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.orderIdGroup}>
-            <Package size={20} color={theme.colors.primary} />
-            <Text style={styles.orderIdText}>
-              Order #{item.customerOrderId?.slice(-6)}
-            </Text>{' '}
-            {/* Use customerOrderId */}
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: statusConfig.color + '15' },
-            ]}
-          >
-            <Text
-              style={[styles.statusBadgeText, { color: statusConfig.color }]}
-            >
-              {statusConfig.label}
-            </Text>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate('DeliveryDetails', { deliveryId: item.id })}
+      >
+        <View style={styles.cardTop}>
+          <Text style={styles.orderId}>{shortOrderId(item)}</Text>
+          <View style={[styles.badge, { backgroundColor: color + '18' }]}>
+            <Text style={[styles.badgeText, { color }]}>{t(statusLabelKey(item.status))}</Text>
           </View>
         </View>
 
-        <View style={styles.routeContainer}>
-          <View style={styles.routeStep}>
-            <View style={styles.iconContainer}>
-              <View
-                style={[styles.dot, { backgroundColor: theme.colors.warning }]}
-              />
-              <View style={styles.line} />
-            </View>
-            <View style={styles.routeInfo}>
-              <Text style={styles.routeLabel}>
-                {t('deliveries.pickup_location')}
-              </Text>
-              {item?.pickupLocations?.map(pl => (
-                <Text key={pl.id} style={styles.routeText} numberOfLines={2}>
-                  {pl?.address}
-                </Text>
-              ))}
-              {/* Use pickupLocations */}
-            </View>
-          </View>
-
-          <View style={styles.routeStep}>
-            <View style={styles.iconContainer}>
-              <MapPin size={20} color={theme.colors.primary} />
-            </View>
-            <View style={styles.routeInfo}>
-              <Text style={styles.routeLabel}>
-                {t('deliveries.delivery_destination')}
-              </Text>
-              <Text style={styles.routeText} numberOfLines={2}>
-                {item.deliveryAddress}
-              </Text>
-            </View>
-          </View>
+        <View style={styles.line}>
+          <Store size={15} color={theme.colors.warning} />
+          <Text style={styles.lineText} numberOfLines={1}>
+            {stores.length > 1 ? t('deliveries.stores_count', { count: stores.length }) : stores[0]?.address ?? '—'}
+          </Text>
+        </View>
+        <View style={styles.line}>
+          <MapPin size={15} color={theme.colors.error} />
+          <Text style={styles.lineText} numberOfLines={1}>
+            {item.deliveryAddress}
+          </Text>
         </View>
 
-        <View style={styles.itemsContainer}>
-          <Text style={styles.itemsTitle}>{t('deliveries.order_items')}</Text>
-          {item.vendorOrders?.map((vo: any) => (
-            <View key={vo.id} style={styles.vendorSection}>
-              <Text style={styles.vendorName}>
-                {vo.vendorName || t('common.vendor')}
-              </Text>
-              {vo.items?.map((orderItem: any) => (
-                <View key={orderItem.id} style={styles.itemRow}>
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{orderItem.productName}</Text>
-
-                    <Text style={styles.itemQuantity}>
-                      {orderItem.quantity ? `x${orderItem.quantity}` : ''}
-                      {orderItem.actualWeightGrams
-                        ? ` (${(orderItem.actualWeightGrams / 1000).toFixed(
-                            2,
-                          )} kg)`
-                        : orderItem.requestedWeightGrams
-                        ? ` (${(orderItem.requestedWeightGrams / 1000).toFixed(
-                            2,
-                          )} kg)`
-                        : ''}
-                    </Text>
-                  </View>
-                  <Text style={styles.itemPrice}>
-                    {orderItem.totalPrice.toFixed(2)} {t('common.currency')}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ))}
-
-          <View style={styles.priceSummary}>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>
-                {t('deliveries.items_price')}
-              </Text>
-              <Text style={styles.priceValue}>
-                {totalPrice?.toFixed(2)} {t('common.currency')}
-              </Text>
-            </View>
-            {item.deliveryFee != null && (
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>
-                  {t('deliveries.delivery_fee')}
-                </Text>
-                <Text style={styles.priceValue}>
-                  {item.deliveryFee.toFixed(2)} {t('common.currency')}
-                </Text>
-              </View>
-            )}
-            <View style={[styles.priceRow, styles.priceTotalRow]}>
-              <Text style={styles.priceTotalLabel}>
-                {t('deliveries.total_price')}
-              </Text>
-              <Text style={styles.priceTotalValue}>
-                {(totalPrice || 0 + (item.deliveryFee || 0)).toFixed(2)}{' '}
-                {t('common.currency')}
-              </Text>
-            </View>
-          </View>
-
-          {(!item.vendorOrders || item.vendorOrders.length === 0) && (
-            <Text style={styles.emptyText}>
-              {t('deliveries.no_items_found')}
+        <View style={styles.cardBottom}>
+          {item.status === DeliveryStatus.ASSIGNED ? (
+            <PickupCountdownBadge deadline={item.pickupDeadline} />
+          ) : (
+            <Text style={styles.time}>
+              {new Date(item.deliveredAt ?? item.assignedAt ?? item.createdAt).toLocaleString(i18n.language, {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </Text>
           )}
-        </View>
-
-        {item.status === DeliveryStatus.ASSIGNED && (
-          <PickupCountdownBadge deadline={(item as any).pickupDeadline} />
-        )}
-
-        {item.status === DeliveryStatus.ASSIGNED && (
-          <View style={styles.assignedActions}>
-            {/* Primary row: Confirm Pickup + Call Customer */}
-            <View style={styles.assignedButtonRow}>
-              <TouchableOpacity
-                style={[
-                  styles.confirmPickupButton,
-                  statusMutation.isPending && styles.disabledButton,
-                ]}
-                onPress={() =>
-                  handleUpdateStatus(
-                    item.id,
-                    item.status,
-                    item.vendorOrderId || '',
-                    item.customerOrderId || '',
-                  )
-                }
-                disabled={statusMutation.isPending}
-              >
-                {statusMutation.isPending ? (
-                  <ActivityIndicator color={theme.colors.white} size="small" />
-                ) : (
-                  <Text style={styles.confirmPickupText}>
-                    {t('deliveries.confirm_pickup')}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.callButtonSmall,
-                  !item.customerPhone && styles.disabledButton,
-                ]}
-                onPress={() =>
-                  item.customerPhone &&
-                  Linking.openURL(`tel:${item.customerPhone}`)
-                }
-                disabled={!item.customerPhone}
-              >
-                <Phone size={16} color={theme.colors.white} />
-                <Text style={styles.callButtonSmallText}>
-                  {t('deliveries.call_customer')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.cancelDeliveryButton,
-                cancelMutation.isPending && styles.disabledButton,
-              ]}
-              onPress={() => handleOpenCancelModal(item.id)}
-              disabled={cancelMutation.isPending}
-            >
-              <XCircle size={16} color={theme.colors.error} />
-              <Text style={styles.cancelDeliveryText}>
-                {t('deliveries.cancel_delivery')}
+          <View style={styles.feeRow}>
+            {item.deliveryFee != null && (
+              <Text style={styles.fee}>
+                {Number(item.deliveryFee).toFixed(2)} {t('common.currency')}
               </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {!isCompleted && item.status !== DeliveryStatus.ASSIGNED && (
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              statusMutation.isPending && styles.disabledButton,
-            ]}
-            onPress={() =>
-              handleUpdateStatus(
-                item.id,
-                item.status,
-                item.vendorOrderId || '',
-                item.customerOrderId || '',
-              )
-            }
-            disabled={statusMutation.isPending}
-          >
-            {statusMutation.isPending ? (
-              <ActivityIndicator color={theme.colors.white} />
-            ) : (
-              <>
-                <Text style={styles.actionButtonText}>
-                  {getNextStatusLabel(item.status, t)}
-                </Text>
-                <ChevronRight
-                  size={20}
-                  color={theme.colors.white}
-                  style={isRTL && { transform: [{ rotate: '180deg' }] }}
-                />
-              </>
             )}
-          </TouchableOpacity>
-        )}
-
-        {isCompleted && (
-          <View style={styles.completedBox}>
-            <CheckCircle2 size={20} color={theme.colors.success} />
-            <Text style={styles.completedText}>
-              {t('deliveries.delivery_successful')}
-            </Text>
+            <ChevronRight size={18} color={theme.colors.textMuted} style={isRTL && { transform: [{ rotate: '180deg' }] }} />
           </View>
-        )}
-      </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  if (myLoading) {
+  if (isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -509,750 +114,72 @@ const DeliveriesScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('deliveries.all_deliveries')}</Text>
-          <TouchableOpacity style={styles.filterButton}>
-            <Clock size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
+      <Text style={styles.title}>{t('deliveries.all_deliveries')}</Text>
 
-        <FlatList
-          data={deliveriesWithTotal}
-          renderItem={renderDeliveryItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              tintColor={theme.colors.primary}
-            />
-          }
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-          }}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator
-                style={{ paddingVertical: 16 }}
-                color={theme.colors.primary}
-              />
-            ) : null
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Navigation size={64} color={theme.colors.surface} />
-              <Text style={styles.emptyText}>
-                {t('deliveries.no_delivery_history')}
-              </Text>
-            </View>
-          }
-        />
+      <View style={styles.tabs}>
+        {(['active', 'history'] as Tab[]).map(key => (
+          <TouchableOpacity key={key} style={[styles.tab, tab === key && styles.tabSelected]} onPress={() => setTab(key)}>
+            <Text style={[styles.tabText, tab === key && styles.tabTextSelected]}>
+              {key === 'active' ? `${t('deliveries.tab_active')} (${activeCount})` : t('deliveries.tab_history')}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View style={styles.alertIconContainer}>
-                <AlertTriangle size={24} color={theme.colors.warning} />
-              </View>
-              <Text style={styles.modalTitle}>
-                {t('deliveries.update_status_title', 'Update Status')}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <X size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.modalDescription}>
-                {t(
-                  'deliveries.update_status_description',
-                  'Are you sure you want to update the status of this delivery?',
-                )}
-              </Text>
-
-              {selectedDelivery && (
-                <View style={styles.deliveryInfoCard}>
-                  <Text style={styles.infoLabel}>
-                    {t('deliveries.order_number', 'Order Number')}
-                  </Text>
-                  <Text style={styles.infoValue}>
-                    #{selectedDelivery.customerOrderId.slice(-8)}
-                  </Text>
-
-                  <View style={styles.statusFlow}>
-                    <View style={styles.statusPoint}>
-                      <Text style={styles.statusLabel}>
-                        {t('deliveries.current_status', 'Current')}
-                      </Text>
-                      <View
-                        style={[
-                          styles.smallStatusBadge,
-                          {
-                            backgroundColor:
-                              getStatusConfig(selectedDelivery.status).color +
-                              '15',
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.smallStatusText,
-                            {
-                              color: getStatusConfig(selectedDelivery.status)
-                                .color,
-                            },
-                          ]}
-                        >
-                          {getStatusConfig(selectedDelivery.status).label}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <ChevronLeft size={20} color={theme.colors.textMuted} />
-
-                    <View style={styles.statusPoint}>
-                      <Text style={styles.statusLabel}>
-                        {t('deliveries.next_status', 'Next')}
-                      </Text>
-                      <View style={styles.nextStatusBadge}>
-                        <Text style={styles.nextStatusText}>
-                          {getNextStatusLabel(selectedDelivery.status, t)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setModalVisible(false)}
-                disabled={statusMutation.isPending}
-              >
-                <Text style={styles.cancelButtonText}>
-                  {t('common.cancel', 'Cancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={confirmUpdateStatus}
-                disabled={statusMutation.isPending}
-              >
-                {statusMutation.isPending ? (
-                  <ActivityIndicator color={theme.colors.white} size="small" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>
-                    {t('common.confirm', 'Confirm')}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+      <FlatList
+        data={deliveries}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.colors.primary} />}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={styles.footer} color={theme.colors.primary} /> : null}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Navigation size={56} color={theme.colors.border} />
+            <Text style={styles.emptyText}>{t(tab === 'active' ? 'deliveries.no_active' : 'deliveries.no_delivery_history')}</Text>
           </View>
-        </View>
-      </Modal>
-      {/* Cancel Reason Modal */}
-      <Modal
-        visible={cancelModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCancelModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View
-                style={[
-                  styles.alertIconContainer,
-                  { backgroundColor: theme.colors.error + '15' },
-                ]}
-              >
-                <XCircle size={24} color={theme.colors.error} />
-              </View>
-              <Text style={styles.modalTitle}>
-                {t('deliveries.cancel_delivery_title')}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setCancelModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <X size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalDescription}>
-                {t('deliveries.cancel_delivery_body')}
-              </Text>
-
-              {CANCEL_REASONS.map(reasonKey => (
-                <TouchableOpacity
-                  key={reasonKey}
-                  style={[
-                    styles.reasonOption,
-                    selectedReason === reasonKey && styles.reasonOptionSelected,
-                  ]}
-                  onPress={() => setSelectedReason(reasonKey)}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      selectedReason === reasonKey &&
-                        styles.radioCircleSelected,
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.reasonText,
-                      selectedReason === reasonKey && styles.reasonTextSelected,
-                    ]}
-                  >
-                    {t(`deliveries.${reasonKey}`)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-
-              {selectedReason === 'cancel_reason_other' && (
-                <TextInput
-                  style={styles.reasonInput}
-                  placeholder={t('deliveries.cancel_reason_placeholder')}
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={customReason}
-                  onChangeText={setCustomReason}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              )}
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setCancelModalVisible(false)}
-                disabled={cancelMutation.isPending}
-              >
-                <Text style={styles.cancelButtonText}>
-                  {t('common.cancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.confirmButton,
-                  { backgroundColor: theme.colors.error },
-                  (!selectedReason || cancelMutation.isPending) &&
-                    styles.disabledButton,
-                ]}
-                onPress={handleConfirmCancel}
-                disabled={!selectedReason || cancelMutation.isPending}
-              >
-                {cancelMutation.isPending ? (
-                  <ActivityIndicator color={theme.colors.white} size="small" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>
-                    {t('deliveries.cancel_confirm')}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        }
+      />
     </SafeAreaView>
   );
 };
 
-const getNextStatusLabel = (status: DeliveryStatus, t: any) => {
-  // Use DeliveryStatus
-  switch (status) {
-    case DeliveryStatus.ASSIGNED:
-      return t('deliveries.confirm_pickup');
-    case DeliveryStatus.PICKED_UP:
-      return t('deliveries.start_delivery');
-    case DeliveryStatus.ON_THE_WAY:
-      return t('deliveries.confirm_delivered');
-    default:
-      return t('deliveries.complete');
-  }
-};
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.white },
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.white,
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: 'bold', color: theme.colors.text, paddingHorizontal: 20, paddingTop: 16 },
+  tabs: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    ...theme.shadows.soft,
-  },
-  title: { fontSize: 22, fontWeight: 'bold', color: theme.colors.primary },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: { padding: theme.spacing.lg },
-  card: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xl,
-    padding: 20,
-    marginBottom: 20,
-    ...theme.shadows.medium,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  orderIdGroup: { flexDirection: 'row', alignItems: 'center' },
-  orderIdText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginStart: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: theme.radius.full,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
-  routeContainer: { marginBottom: 20 },
-  routeStep: { flexDirection: 'row', marginBottom: 5 },
-  iconContainer: { alignItems: 'center', width: 24, marginEnd: 16 },
-  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
-  line: {
-    width: 2,
-    height: 40,
-    backgroundColor: theme.colors.border,
-    marginVertical: 4,
-  },
-  routeInfo: { flex: 1 },
-  routeLabel: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  routeText: {
-    fontSize: 15,
-    color: theme.colors.primary,
-    fontWeight: '500',
-    lineHeight: 22,
-  },
-  actionButton: {
-    backgroundColor: theme.colors.primary,
-    flexDirection: 'row',
-    height: 56,
-    borderRadius: theme.radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-    ...theme.shadows.medium,
-  },
-  disabledButton: { opacity: 0.7 },
-  actionButtonText: {
-    color: theme.colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginEnd: 8,
-  },
-  assignedActions: {
-    marginTop: 10,
-  },
-  countdownBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#FF9500' + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: theme.radius.full,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#FF9500' + '30',
-  },
-  countdownBadgeText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FF9500',
-    marginStart: 5,
-  },
-  assignedButtonRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  confirmPickupButton: {
-    flex: 1,
-    height: 48,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadows.soft,
-  },
-  confirmPickupText: {
-    color: theme.colors.white,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  callButtonSmall: {
-    flex: 1,
-    height: 48,
-    backgroundColor: '#FF9500',
-    borderRadius: theme.radius.md,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadows.soft,
-  },
-  callButtonSmallText: {
-    color: theme.colors.white,
-    fontSize: 13,
-    fontWeight: 'bold',
-    marginStart: 6,
-  },
-  cancelDeliveryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 44,
-    marginTop: 10,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.error + '50',
-    backgroundColor: theme.colors.error + '08',
-  },
-  cancelDeliveryText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginStart: 6,
-  },
-  reasonOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 8,
-    backgroundColor: theme.colors.white,
-  },
-  reasonOptionSelected: {
-    borderColor: theme.colors.error,
-    backgroundColor: theme.colors.error + '08',
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    marginEnd: 10,
-  },
-  radioCircleSelected: {
-    borderColor: theme.colors.error,
-    backgroundColor: theme.colors.error,
-  },
-  reasonText: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    flex: 1,
-  },
-  reasonTextSelected: {
-    color: theme.colors.error,
-    fontWeight: '600',
-  },
-  reasonInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: 12,
-    fontSize: 14,
-    color: theme.colors.text,
-    minHeight: 80,
-    marginTop: 4,
-    backgroundColor: theme.colors.white,
-  },
-  completedBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.success + '10',
-    height: 56,
-    borderRadius: theme.radius.md,
-    marginTop: 10,
-  },
-  completedText: {
-    color: theme.colors.success,
-    fontWeight: 'bold',
-    marginStart: 8,
-    fontSize: 16,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    color: theme.colors.textMuted,
-    fontWeight: '500',
-  },
-  itemsContainer: {
-    marginTop: 10,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    marginBottom: 15,
-  },
-  itemsTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-    letterSpacing: 0.5,
-  },
-  vendorSection: {
-    marginBottom: 10,
-  },
-  vendorName: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginBottom: 4,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    // justifyContent: 'flex-start',
-    paddingVertical: 2,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemQuantity: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  itemName: {
-    fontSize: 13,
-    color: theme.colors.text,
-    // flex: 1,
-  },
-  itemPrice: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginStart: 10,
-  },
-  priceSummary: {
+    marginHorizontal: 20,
     marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingTop: 10,
-    gap: 6,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  priceLabel: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
-  priceValue: {
-    fontSize: 13,
-    color: theme.colors.text,
-    fontWeight: '500',
-  },
-  priceTotalRow: {
-    marginTop: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  priceTotalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  priceTotalValue: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
     backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xl,
-    width: '100%',
-    maxWidth: 400,
-    overflow: 'hidden',
-    ...theme.shadows.medium,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  alertIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.warning + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    flex: 1,
-  },
-  closeButton: {
+    borderRadius: theme.radius.md,
     padding: 4,
   },
-  modalBody: {
-    padding: 20,
-  },
-  modalDescription: {
-    fontSize: 15,
-    color: theme.colors.textMuted,
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  deliveryInfoCard: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radius.lg,
-    padding: 16,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginBottom: 16,
-  },
-  statusFlow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  statusPoint: {
-    // flex: 1,
-    // alignItems: 'flex-start',
-  },
-  statusLabel: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginBottom: 6,
-  },
-  smallStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radius.full,
-  },
-  smallStatusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  nextStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.primary,
-  },
-  nextStatusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: theme.colors.white,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background + '50',
-  },
-  cancelButton: {
-    flex: 1,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
-  },
-  confirmButton: {
-    flex: 2,
-    height: 48,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: theme.radius.md,
-    ...theme.shadows.soft,
-  },
-  confirmButtonText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.white,
-  },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: theme.radius.md },
+  tabSelected: { backgroundColor: theme.colors.primary },
+  tabText: { fontWeight: '600', color: theme.colors.textMuted },
+  tabTextSelected: { color: theme.colors.white },
+  list: { padding: 16, flexGrow: 1 },
+  footer: { paddingVertical: 16 },
+  card: { backgroundColor: theme.colors.white, borderRadius: theme.radius.md, padding: 14, marginBottom: 12, ...theme.shadows.soft },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  orderId: { fontSize: 16, fontWeight: 'bold', color: theme.colors.text },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeText: { fontSize: 12, fontWeight: 'bold' },
+  line: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  lineText: { flex: 1, color: theme.colors.text },
+  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  time: { fontSize: 12, color: theme.colors.textMuted },
+  feeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  fee: { fontWeight: 'bold', color: theme.colors.success },
+  empty: { alignItems: 'center', marginTop: 60 },
+  emptyText: { color: theme.colors.textMuted, marginTop: 12 },
 });
 
 export default DeliveriesScreen;

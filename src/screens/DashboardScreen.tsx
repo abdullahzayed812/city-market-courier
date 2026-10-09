@@ -23,12 +23,18 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
 
 import { DeliveryService } from '../services/api/deliveryService';
 import { useAuth } from '../app/AuthContext';
 import { theme } from '../theme';
 import { useSocket } from '../app/SocketContext';
 import { EventType, DeliveryStatus } from '@city-market/shared';
+import { useAvailableJobs } from '../hooks/useAvailableJobs';
+import { JobCard } from '../components/deliveries/JobCard';
+
+// How many open jobs the dashboard previews; the Jobs tab has the full list
+const DASHBOARD_JOBS = 3;
 
 const DashboardScreen = ({ navigation }: any) => {
   const { t } = useTranslation();
@@ -57,6 +63,16 @@ const DashboardScreen = ({ navigation }: any) => {
       delivery.status !== DeliveryStatus.FAILED,
   );
 
+  // Freelancers: open jobs they can take, previewed under their active deliveries
+  const {
+    isFreelancer,
+    canWork,
+    jobs,
+    jobsQuery,
+    claimMutation,
+    emptyMessage: jobsEmptyMessage,
+  } = useAvailableJobs(id => navigation.navigate('DeliveryDetails', { deliveryId: id }));
+
   useFocusEffect(
     useCallback(() => {
       refetchDeliveries();
@@ -65,9 +81,13 @@ const DashboardScreen = ({ navigation }: any) => {
 
   const updateAvailabilityMutation = useMutation({
     mutationFn: (isAvailable: boolean) =>
-      DeliveryService.updateAvailability(profile!.id, isAvailable),
+      DeliveryService.updateAvailability(isAvailable),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courierProfile'] });
+    },
+    // e.g. freelancer not approved yet, or a delivery still in progress
+    onError: (err: any) => {
+      Toast.show({ type: 'error', text1: err?.response?.data?.message || t('common.error') });
     },
   });
 
@@ -78,12 +98,22 @@ const DashboardScreen = ({ navigation }: any) => {
       queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
     };
 
-    // socket.on(EventType.DELIVERY_CREATED, handleUpdate);
-    socket.on(EventType.COURIER_ASSIGNED, handleUpdate);
+    // Anything that adds, advances or removes one of my deliveries
+    const activeEvents = [
+      EventType.COURIER_ASSIGNED,
+      EventType.ORDER_PICKED_UP,
+      EventType.ORDER_ON_THE_WAY,
+      EventType.ORDER_DELIVERED,
+      EventType.SLA_COURIER_PICKUP_EXPIRED,
+      EventType.DELIVERY_RETURNED_TO_POOL,
+    ];
+    activeEvents.forEach(e => socket.on(e, handleUpdate));
+    const handleApproval = () => queryClient.invalidateQueries({ queryKey: ['courierProfile'] });
+    socket.on(EventType.COURIER_APPROVAL_UPDATED, handleApproval);
 
     return () => {
-      // socket.off(EventType.DELIVERY_CREATED, handleUpdate);
-      socket.off(EventType.COURIER_ASSIGNED, handleUpdate);
+      activeEvents.forEach(e => socket.off(e, handleUpdate));
+      socket.off(EventType.COURIER_APPROVAL_UPDATED, handleApproval);
     };
   }, [socket, queryClient]);
 
@@ -108,7 +138,10 @@ const DashboardScreen = ({ navigation }: any) => {
         refreshControl={
           <RefreshControl
             refreshing={deliveriesFetching}
-            onRefresh={refetchDeliveries}
+            onRefresh={() => {
+              refetchDeliveries();
+              if (canWork) jobsQuery.refetch();
+            }}
           />
         }
       >
@@ -155,17 +188,18 @@ const DashboardScreen = ({ navigation }: any) => {
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <View style={styles.statBox}>
+          <TouchableOpacity style={styles.statBox} onPress={() => navigation.navigate('MyRatings')}>
             <Star
               color={theme.colors.warning}
               size={20}
               fill={theme.colors.warning}
             />
             <Text style={styles.statValue}>
-              {profile?.rating?.toFixed(1) || '0.0'}
+              {/* Average of customer ratings; "—" until the first one */}
+              {profile?.ratingCount ? `${profile.rating.toFixed(1)} (${profile.ratingCount})` : '—'}
             </Text>
             <Text style={styles.statLabel}>{t('couriers.rating')}</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.statBox}>
             <CheckCircle2 color={theme.colors.success} size={20} />
             <Text style={styles.statValue}>
@@ -188,7 +222,7 @@ const DashboardScreen = ({ navigation }: any) => {
               <TouchableOpacity
                 key={delivery.id}
                 style={styles.deliveryCard}
-                onPress={() => navigation.navigate('Deliveries')}
+                onPress={() => navigation.navigate('DeliveryDetails', { deliveryId: delivery.id })}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.orderInfo}>
@@ -273,6 +307,29 @@ const DashboardScreen = ({ navigation }: any) => {
             </View>
           )}
         </View>
+
+        {/* Freelancers: nearest open jobs, take one right from here */}
+        {isFreelancer && (
+          <>
+            <View style={[styles.sectionHeader, styles.jobsHeader]}>
+              <Text style={styles.sectionTitle}>{t('jobs.title')}</Text>
+              {jobs.length > DASHBOARD_JOBS && (
+                <TouchableOpacity onPress={() => navigation.navigate('Jobs')}>
+                  <Text style={styles.seeAll}>{t('dashboard.view_all')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {jobs.length > 0 ? (
+              jobs
+                .slice(0, DASHBOARD_JOBS)
+                .map(job => (
+                  <JobCard key={job.id} job={job} claiming={claimMutation.isPending} onClaim={id => claimMutation.mutate(id)} />
+                ))
+            ) : (
+              <Text style={styles.jobsEmpty}>{jobsEmptyMessage()}</Text>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -363,6 +420,9 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 12, color: theme.colors.textMuted, marginTop: 2 },
   sectionHeader: { marginBottom: 15 },
+  jobsHeader: { marginTop: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  seeAll: { color: theme.colors.primary, fontWeight: '600' },
+  jobsEmpty: { color: theme.colors.textMuted, textAlign: 'center', paddingVertical: 16 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
   deliveriesContainer: { gap: 15 },
   deliveryCard: {

@@ -8,6 +8,18 @@ export const AuthService = {
         const response = await apiClient.post('/auth/login', { ...credentials, deviceId, platform: Platform.OS });
         return response.data?.data;
     },
+    // Public signup: always a COURIER account. The courier profile (and admin
+    // approval) comes after, from the onboarding screen.
+    register: async (credentials: { email: string; password: string }) => {
+        const deviceId = await getDeviceId();
+        const response = await apiClient.post('/auth/register', {
+            ...credentials,
+            role: 'COURIER',
+            deviceId,
+            platform: Platform.OS,
+        });
+        return response.data?.data;
+    },
     logout: async () => {
         const response = await apiClient.post('/auth/logout');
         return response.data?.data;

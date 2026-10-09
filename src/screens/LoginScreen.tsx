@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { AppText as Text } from '@city-market/mobile-ui';
+import { AppText as Text, DemoAccounts } from '@city-market/mobile-ui';
 import { useTranslation } from 'react-i18next';
 import { Mail, Lock, Truck, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
@@ -18,17 +18,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthService } from '../services/api/authService';
 import { useAuth } from '../app/AuthContext';
 import { theme } from '../theme';
+import { DEMO_MODE, DEMO_ACCOUNTS, DEMO_PASSWORD } from '../config/demo';
 
-const LoginScreen = () => {
+const LoginScreen = ({ navigation }: any) => {
   const { t, i18n } = useTranslation();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('courier@citymarket.com');
-  const [password, setPassword] = useState('password123');
+  // Demo account prefilled while DEMO_MODE is on (see src/config/demo.ts)
+  const [email, setEmail] = useState(DEMO_MODE ? DEMO_ACCOUNTS[0].email : '');
+  const [password, setPassword] = useState(DEMO_MODE ? DEMO_PASSWORD : '');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const isRTL = i18n.language === 'ar';
 
-  const handleLogin = async () => {
+  const handleLogin = () => loginWith(email, password);
+
+  const loginWith = async (email: string, password: string) => {
     if (!email || !password) {
       Toast.show({
         type: 'error',
@@ -132,6 +136,24 @@ const LoginScreen = () => {
                 </>
               )}
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.signupLink} onPress={() => navigation.navigate('Signup')}>
+              <Text style={styles.signupLinkText}>{t('signup.join_as_freelancer')}</Text>
+            </TouchableOpacity>
+
+            {DEMO_MODE && (
+              <DemoAccounts
+                title={t('auth.demo_accounts')}
+                accounts={DEMO_ACCOUNTS}
+                loading={loading}
+                accentColor={theme.colors.primary}
+                onSelect={account => {
+                  setEmail(account.email);
+                  setPassword(DEMO_PASSWORD);
+                  loginWith(account.email, DEMO_PASSWORD);
+                }}
+              />
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -211,6 +233,14 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     fontSize: 18,
     fontWeight: theme.typography.weights.bold,
+  },
+  signupLink: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  signupLinkText: {
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
 });
 

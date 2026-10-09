@@ -9,23 +9,35 @@ export const navigationRef = createNavigationContainerRef();
 import {
   LayoutDashboard,
   Truck,
+  Briefcase,
   Banknote,
   User,
   ChevronLeft,
 } from 'lucide-react-native';
-import { TouchableOpacity, Platform } from 'react-native';
+import { TouchableOpacity, Platform, View } from 'react-native';
+import { AppText as Text } from '@city-market/mobile-ui';
 import { theme } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
+import FreelanceOnboardingScreen from '../screens/FreelanceOnboardingScreen';
+import ApplicationStatusScreen from '../screens/ApplicationStatusScreen';
+import DeliveryDetailsScreen from '../screens/DeliveryDetailsScreen';
+import MyRatingsScreen from '../screens/MyRatingsScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import DeliveriesScreen from '../screens/DeliveriesScreen';
+import JobsScreen from '../screens/JobsScreen';
 import EarningsScreen from '../screens/EarningsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SplashScreen from '../screens/SplashScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
 
 import { useAuth } from '../app/AuthContext';
+import { useSocket } from '../app/SocketContext';
+import { useQuery } from '@tanstack/react-query';
+import { DeliveryService } from '../services/api/deliveryService';
+import { useLocationHeartbeat } from '../hooks/useLocationHeartbeat';
 
 const TERMS_ACCEPTED_KEY = '@citymarket_courier_terms_accepted';
 
@@ -34,6 +46,14 @@ const Tab = createBottomTabNavigator();
 
 const MainTabNavigator = () => {
   const { t } = useTranslation();
+  const { data: profile } = useQuery({
+    queryKey: ['courierProfile'],
+    queryFn: () => DeliveryService.getProfile(),
+  });
+  const isFreelance = profile?.courierType === 'FREELANCE';
+  useLocationHeartbeat(
+    isFreelance && profile?.approvalStatus === 'APPROVED' && !!profile?.isAvailable,
+  );
 
   return (
     <Tab.Navigator
@@ -69,6 +89,16 @@ const MainTabNavigator = () => {
           ),
         }}
       />
+      {isFreelance && (
+        <Tab.Screen
+          name="Jobs"
+          component={JobsScreen}
+          options={{
+            title: t('jobs.title'),
+            tabBarIcon: ({ color, size }) => <Briefcase color={color} size={size} />,
+          }}
+        />
+      )}
       <Tab.Screen
         name="Deliveries"
         component={DeliveriesScreen}
@@ -155,8 +185,8 @@ const RootNavigator = () => {
           />
         ) : (
           <Stack.Screen
-            name="Main"
-            component={MainTabNavigator}
+            name="Courier"
+            component={CourierGate}
             options={{ headerShown: false }}
           />
         )}
@@ -169,6 +199,99 @@ const LoginStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+    </Stack.Navigator>
+  );
+};
+
+type GateState = 'loading' | 'error' | 'onboarding' | 'review' | 'ready';
+
+// Decides what a signed-in courier sees from their profile:
+//   no profile yet (new freelance signup)   -> onboarding (details + documents)
+//   pending review / rejected / suspended   -> application status
+//   (freelance signups and office couriers added by a manager both need admin approval)
+//   otherwise                               -> the app
+const CourierGate = () => {
+  const { t } = useTranslation();
+  const { signOut } = useAuth();
+  const { socket } = useSocket();
+  const { data: profile, error, isLoading, refetch } = useQuery({
+    queryKey: ['courierProfile'],
+    queryFn: () => DeliveryService.getProfile(),
+    // 404 just means "no profile yet"; don't retry it
+    retry: (count, err: any) => err?.response?.status !== 404 && count < 2,
+  });
+
+  const notFound = (error as any)?.response?.status === 404;
+  const state: GateState = isLoading
+    ? 'loading'
+    : notFound
+    ? 'onboarding'
+    : error || !profile
+    ? 'error'
+    : profile.approvalStatus && profile.approvalStatus !== 'APPROVED'
+    ? 'review'
+    : 'ready';
+
+  // The gateway joins courier rooms (courier:<id>, courier:freelance) only on connect,
+  // so reconnect once the courier gets access to the app.
+  const previous = React.useRef<GateState>(state);
+  React.useEffect(() => {
+    if (state === 'ready' && previous.current !== 'ready' && previous.current !== 'loading' && socket) {
+      socket.disconnect();
+      socket.connect();
+    }
+    previous.current = state;
+  }, [state, socket]);
+
+  if (state === 'loading') return <SplashScreen />;
+
+  if (state === 'error') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 }}>
+        <Text style={{ color: theme.colors.textMuted, textAlign: 'center' }}>{t('common.error')}</Text>
+        <TouchableOpacity onPress={() => refetch()}>
+          <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{t('common.retry')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={signOut}>
+          <Text style={{ color: theme.colors.textMuted }}>{t('common.logout')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (state === 'onboarding') return <FreelanceOnboardingScreen />;
+  if (state === 'review') return <ApplicationStatusScreen />;
+
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="Tabs" component={MainTabNavigator} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="MyRatings"
+        component={MyRatingsScreen}
+        options={({ navigation }) => ({
+          title: t('ratings.my_ratings'),
+          headerTitleStyle: { fontWeight: 'bold', color: theme.colors.primary },
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginEnd: 10 }}>
+              <ChevronLeft color={theme.colors.primary} size={24} />
+            </TouchableOpacity>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="DeliveryDetails"
+        component={DeliveryDetailsScreen}
+        options={({ navigation }) => ({
+          title: t('deliveries.details'),
+          headerTitleStyle: { fontWeight: 'bold', color: theme.colors.primary },
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginEnd: 10 }}>
+              <ChevronLeft color={theme.colors.primary} size={24} />
+            </TouchableOpacity>
+          ),
+        })}
+      />
     </Stack.Navigator>
   );
 };

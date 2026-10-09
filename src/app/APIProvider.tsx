@@ -1,7 +1,8 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const queryClient = new QueryClient({
+// Exported so AuthContext can clear it when the signed-in user changes
+export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             retry: 2,

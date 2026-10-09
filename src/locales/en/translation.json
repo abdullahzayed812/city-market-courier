@@ -36,7 +36,8 @@
     "login_subtitle": "Enter your credentials to access your routes",
     "login_successful": "Login Successful",
     "welcome_back_courier": "Welcome back, Courier!",
-    "login_failed_creds": "Login failed. Please check your credentials."
+    "login_failed_creds": "Login failed. Please check your credentials.",
+    "demo_accounts": "Demo accounts"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -56,7 +57,7 @@
     "deliveries": "Deliveries"
   },
   "deliveries": {
-    "title": "Deliveries",
+    "title": "My deliveries",
     "pickup": "Pickup",
     "delivery": "Delivery",
     "dropoff": "Dropoff",
@@ -78,7 +79,7 @@
     "confirm_delivered": "Confirm Delivered",
     "complete": "Complete",
     "delivery_successful": "Delivery Successful",
-    "all_deliveries": "All Deliveries",
+    "all_deliveries": "My deliveries",
     "no_delivery_history": "No delivery history yet",
     "active_title": "Active Deliveries",
     "destination": "Destination",
@@ -105,7 +106,21 @@
     "cancel_reason_placeholder": "Describe the reason...",
     "cancel_confirm": "Confirm Cancellation",
     "items_price": "Items price",
-    "delivery_fee": "Delivery fee"
+    "delivery_fee": "Delivery fee",
+    "release_delivery": "I can't deliver this",
+    "release_title": "Give up this delivery?",
+    "release_message": "It goes to another courier. This counts against your record.",
+    "release_confirm": "Give up",
+    "released": "Delivery released",
+    "tab_active": "Active",
+    "tab_history": "History",
+    "stores_count": "{{count}} stores",
+    "not_found": "This delivery isn't available anymore",
+    "pickup_before": "Pick up within",
+    "cash_to_collect": "Collect from customer",
+    "cash_collected": "Collected from customer",
+    "collect_reminder": "Make sure you collected {{amount}} from the customer.",
+    "report_customer_problem": "Report a customer problem"
   },
   "earnings": {
     "title": "Earnings",
@@ -179,5 +194,80 @@
     "declineMessage": "You must accept the Terms and Conditions to use CityMarket Courier. If you decline, the app will close.",
     "exitApp": "Exit App",
     "scrollHint": "Please scroll down to read all terms before accepting"
+  },
+  "jobs": {
+    "title": "Available",
+    "empty": "No deliveries near you right now. Pull to refresh.",
+    "claim": "Take it",
+    "claimed": "Delivery is yours. Head to the pickup.",
+    "km_away": "{{km}} km away",
+    "delivery_fee": "Fee: {{amount}} EGP",
+    "pending_review": "Your account is under review. You can take deliveries once an admin approves it.",
+    "suspended": "Your account is suspended. Contact support.",
+    "go_online": "Go online from the dashboard to see nearby deliveries."
+  },
+  "signup": {
+    "title": "Become a courier",
+    "subtitle": "Create an account, add your details and documents, and start delivering once we approve you.",
+    "confirm_password": "Confirm password",
+    "create_account": "Create account",
+    "have_account": "Already have an account? Log in",
+    "join_as_freelancer": "New here? Join as a freelance courier",
+    "invalid_email": "Enter a valid email",
+    "password_too_short": "Password must be at least {{min}} characters",
+    "passwords_dont_match": "Passwords don't match",
+    "failed": "Couldn't create the account"
+  },
+  "onboarding": {
+    "title": "Your courier profile",
+    "subtitle": "We review every application before you can take deliveries.",
+    "personal_info": "Personal info",
+    "full_name": "Full name (as on your ID)",
+    "phone": "Phone number",
+    "vehicle": "Vehicle",
+    "vehicle_motorcycle": "Motorcycle",
+    "vehicle_car": "Car",
+    "vehicle_bicycle": "Bicycle",
+    "license_plate": "License plate",
+    "documents": "Documents",
+    "national_id": "National ID",
+    "national_id_hint": "Front side, all four corners visible",
+    "driving_license": "Driving license",
+    "driving_license_hint": "Clear photo, not expired",
+    "documents_privacy": "Your documents are only used to verify your identity.",
+    "take_photo": "Take a photo",
+    "choose_from_gallery": "Choose from gallery",
+    "tap_to_add": "Tap to add a photo",
+    "tap_to_replace": "Tap to replace",
+    "photo_error": "Couldn't get the photo",
+    "full_name_required": "Enter your full name (first and last)",
+    "invalid_phone": "Enter a valid phone number",
+    "plate_required": "Enter your license plate",
+    "national_id_required": "Add a photo of your national ID",
+    "license_required": "Add a photo of your driving license",
+    "uploading_id": "Uploading ID…",
+    "uploading_license": "Uploading license…",
+    "submitting": "Submitting…",
+    "submit": "Submit for review",
+    "submit_failed": "Couldn't submit your application",
+    "upload_failed": "Couldn't upload the document photos"
+  },
+  "application": {
+    "pending_title": "Application under review",
+    "pending_body": "Thanks for applying. We'll notify you as soon as an admin reviews your documents.",
+    "suspended_title": "Account suspended",
+    "suspended_body": "Your courier account is suspended and can't take deliveries. Contact support for details.",
+    "submitted_details": "Your details",
+    "check_status": "Check status",
+    "rejected_title": "Application rejected",
+    "rejected_body": "An admin reviewed your documents and rejected the application. Contact support or your delivery office for details.",
+    "office_pending_title": "Waiting for approval",
+    "office_pending_body": "Your delivery office added you. You can start taking deliveries once an admin reviews and approves your documents."
+  },
+  "ratings": {
+    "my_ratings": "My ratings",
+    "count": "{{count}} ratings",
+    "latest_reviews": "Latest reviews",
+    "no_reviews": "No ratings yet"
   }
 }

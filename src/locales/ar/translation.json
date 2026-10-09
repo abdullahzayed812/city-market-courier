@@ -36,7 +36,8 @@
     "login_subtitle": "أدخل بياناتك للوصول إلى مساراتك",
     "login_successful": "تم تسجيل الدخول بنجاح",
     "welcome_back_courier": "مرحباً بك مجدداً أيها المندوب!",
-    "login_failed_creds": "فشل تسجيل الدخول. يرجى التحقق من بياناتك."
+    "login_failed_creds": "فشل تسجيل الدخول. يرجى التحقق من بياناتك.",
+    "demo_accounts": "حسابات تجريبية"
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -56,7 +57,7 @@
     "deliveries": "عدد التوصيلات"
   },
   "deliveries": {
-    "title": "الطلبات",
+    "title": "توصيلاتي",
     "pickup": "استلام",
     "delivery": "توصيل",
     "dropoff": "تسليم",
@@ -78,7 +79,7 @@
     "confirm_delivered": "تأكيد التوصيل",
     "complete": "إكمال",
     "delivery_successful": "تم التوصيل بنجاح",
-    "all_deliveries": "كافة الطلبات",
+    "all_deliveries": "توصيلاتي",
     "no_delivery_history": "لا يوجد سجل طلبات بعد",
     "active_title": "الطلبات النشطة",
     "destination": "الوجهة",
@@ -105,7 +106,21 @@
     "cancel_reason_placeholder": "اكتب السبب...",
     "cancel_confirm": "تأكيد الإلغاء",
     "items_price": "سعر المنتجات",
-    "delivery_fee": "رسوم التوصيل"
+    "delivery_fee": "رسوم التوصيل",
+    "release_delivery": "لا أستطيع توصيل هذا الطلب",
+    "release_title": "التخلي عن هذا التوصيل؟",
+    "release_message": "سيتم تحويله لمندوب آخر، وسيُحسب ذلك في سجلك.",
+    "release_confirm": "تخلي",
+    "released": "تم التخلي عن التوصيل",
+    "tab_active": "الجارية",
+    "tab_history": "السجل",
+    "stores_count": "{{count}} متاجر",
+    "not_found": "هذا التوصيل لم يعد متاحًا",
+    "pickup_before": "استلم خلال",
+    "cash_to_collect": "المبلغ المطلوب من العميل",
+    "cash_collected": "المبلغ المحصل من العميل",
+    "collect_reminder": "تأكد من تحصيل {{amount}} من العميل.",
+    "report_customer_problem": "الإبلاغ عن مشكلة مع العميل"
   },
   "earnings": {
     "title": "الأرباح",
@@ -179,5 +194,80 @@
     "declineMessage": "يجب قبول الشروط والأحكام لاستخدام سيتي ماركت كوريير. إذا رفضت، سيتم إغلاق التطبيق.",
     "exitApp": "إغلاق التطبيق",
     "scrollHint": "يُرجى التمرير لأسفل لقراءة جميع الشروط قبل القبول"
+  },
+  "jobs": {
+    "title": "طلبات متاحة",
+    "empty": "لا توجد توصيلات قريبة منك الآن. اسحب للتحديث.",
+    "claim": "استلام",
+    "claimed": "التوصيل أصبح لك. توجه إلى نقطة الاستلام.",
+    "km_away": "على بعد {{km}} كم",
+    "delivery_fee": "الأجرة: {{amount}} ج.م",
+    "pending_review": "حسابك قيد المراجعة. يمكنك استلام التوصيلات بعد موافقة الإدارة.",
+    "suspended": "تم إيقاف حسابك. تواصل مع الدعم.",
+    "go_online": "فعّل حالتك من الرئيسية لرؤية التوصيلات القريبة."
+  },
+  "signup": {
+    "title": "انضم كمندوب",
+    "subtitle": "أنشئ حسابًا وأضف بياناتك ومستنداتك، وابدأ التوصيل بعد موافقتنا.",
+    "confirm_password": "تأكيد كلمة المرور",
+    "create_account": "إنشاء الحساب",
+    "have_account": "لديك حساب؟ سجّل الدخول",
+    "join_as_freelancer": "جديد هنا؟ انضم كمندوب حر",
+    "invalid_email": "أدخل بريدًا إلكترونيًا صحيحًا",
+    "password_too_short": "كلمة المرور يجب ألا تقل عن {{min}} أحرف",
+    "passwords_dont_match": "كلمتا المرور غير متطابقتين",
+    "failed": "تعذر إنشاء الحساب"
+  },
+  "onboarding": {
+    "title": "ملف المندوب",
+    "subtitle": "نراجع كل طلب قبل أن تتمكن من استلام التوصيلات.",
+    "personal_info": "البيانات الشخصية",
+    "full_name": "الاسم الكامل (كما في البطاقة)",
+    "phone": "رقم الهاتف",
+    "vehicle": "وسيلة التوصيل",
+    "vehicle_motorcycle": "دراجة نارية",
+    "vehicle_car": "سيارة",
+    "vehicle_bicycle": "دراجة",
+    "license_plate": "رقم اللوحة",
+    "documents": "المستندات",
+    "national_id": "البطاقة الشخصية",
+    "national_id_hint": "الوجه الأمامي مع ظهور الأطراف الأربعة",
+    "driving_license": "رخصة القيادة",
+    "driving_license_hint": "صورة واضحة وسارية",
+    "documents_privacy": "تُستخدم مستنداتك للتحقق من هويتك فقط.",
+    "take_photo": "التقاط صورة",
+    "choose_from_gallery": "اختيار من المعرض",
+    "tap_to_add": "اضغط لإضافة صورة",
+    "tap_to_replace": "اضغط للاستبدال",
+    "photo_error": "تعذر الحصول على الصورة",
+    "full_name_required": "أدخل اسمك الكامل (الأول والأخير)",
+    "invalid_phone": "أدخل رقم هاتف صحيحًا",
+    "plate_required": "أدخل رقم اللوحة",
+    "national_id_required": "أضف صورة البطاقة الشخصية",
+    "license_required": "أضف صورة رخصة القيادة",
+    "uploading_id": "جارٍ رفع البطاقة…",
+    "uploading_license": "جارٍ رفع الرخصة…",
+    "submitting": "جارٍ الإرسال…",
+    "submit": "إرسال للمراجعة",
+    "submit_failed": "تعذر إرسال طلبك",
+    "upload_failed": "تعذر رفع صور المستندات"
+  },
+  "application": {
+    "pending_title": "طلبك قيد المراجعة",
+    "pending_body": "شكرًا لتقديمك. سنرسل لك إشعارًا فور مراجعة الإدارة لمستنداتك.",
+    "suspended_title": "تم إيقاف الحساب",
+    "suspended_body": "حسابك كمندوب موقوف ولا يمكنه استلام التوصيلات. تواصل مع الدعم لمعرفة التفاصيل.",
+    "submitted_details": "بياناتك",
+    "check_status": "تحقق من الحالة",
+    "rejected_title": "تم رفض الطلب",
+    "rejected_body": "راجعت الإدارة مستنداتك ورفضت الطلب. تواصل مع الدعم أو مكتب التوصيل لمعرفة التفاصيل.",
+    "office_pending_title": "في انتظار الموافقة",
+    "office_pending_body": "أضافك مكتب التوصيل. يمكنك البدء في استلام التوصيلات بعد مراجعة الإدارة لمستنداتك والموافقة عليها."
+  },
+  "ratings": {
+    "my_ratings": "تقييماتي",
+    "count": "{{count}} تقييم",
+    "latest_reviews": "أحدث المراجعات",
+    "no_reviews": "لا توجد تقييمات بعد"
   }
 }

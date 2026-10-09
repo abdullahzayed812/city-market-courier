@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setSignOutCallback } from '../services/api/apiClient';
 import { AuthService } from '../services/api/authService';
 import { SecureStorage } from '../services/secureStorage';
+import { queryClient } from './APIProvider';
 
 interface User {
     userId: string;
@@ -30,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         setSignOutCallback(() => {
+            queryClient.clear();
             setUserToken(null);
             setUser(null);
         });
@@ -57,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const clearLocalState = async () => {
+        // Cached data belongs to the user who is leaving
+        queryClient.clear();
         await SecureStorage.clearAll();
         await AsyncStorage.removeItem('user');
         setUserToken(null);
@@ -73,6 +77,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await SecureStorage.setRefreshToken(refreshToken);
             await AsyncStorage.setItem('user', JSON.stringify(user));
 
+            // Drop anything cached for a previous user, so screens (and the profile gate
+            // that decides between home and onboarding) never show their data
+            queryClient.clear();
             setUserToken(token);
             setUser(user);
         },
