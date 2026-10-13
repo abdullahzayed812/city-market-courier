@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Star } from 'lucide-react-native';
 import { DeliveryService } from '../services/api/deliveryService';
 import { theme } from '../theme';
+import QueryError from '../components/common/QueryError';
 
 const Stars = ({ value, size = 14 }: { value: number | null | undefined; size?: number }) => (
   <View style={styles.stars}>
@@ -23,7 +24,7 @@ const Stars = ({ value, size = 14 }: { value: number | null | undefined; size?: 
 // How customers rated this courier's deliveries
 const MyRatingsScreen = () => {
   const { t, i18n } = useTranslation();
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['myRatings'],
     queryFn: () => DeliveryService.getMyRatings(),
   });
@@ -38,8 +39,16 @@ const MyRatingsScreen = () => {
     );
   }
 
+  if (error && !data) {
+    return (
+      <View style={styles.container}>
+        <QueryError error={error} onRetry={refetch} retrying={isRefetching} />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.colors.primary} colors={[theme.colors.primary]} />}>
       <View style={styles.card}>
         <View style={styles.summaryRow}>
           <View style={styles.average}>

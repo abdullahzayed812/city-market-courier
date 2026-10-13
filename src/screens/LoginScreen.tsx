@@ -1,34 +1,24 @@
-import React, { useState } from 'react';
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  StatusBar,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { AppText as Text, DemoAccounts } from '@city-market/mobile-ui';
+import React, { useRef, useState } from 'react';
+import { View, TextInput, Pressable, StyleSheet, StatusBar, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { AppText as Text, Button, DemoAccounts, ForwardIcon, palette, radii, sizes, space, elevation } from '@city-market/mobile-ui';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Truck, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
-import Toast from 'react-native-toast-message';
+import { Mail, Lock, Truck, Eye, EyeOff } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthService } from '../services/api/authService';
 import { useAuth } from '../app/AuthContext';
-import { theme } from '../theme';
+import { AuthService } from '../services/api/authService';
+import Toast from 'react-native-toast-message';
 import { DEMO_MODE, DEMO_ACCOUNTS, DEMO_PASSWORD } from '../config/demo';
 
 const LoginScreen = ({ navigation }: any) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { signIn } = useAuth();
   // Demo account prefilled while DEMO_MODE is on (see src/config/demo.ts)
   const [email, setEmail] = useState(DEMO_MODE ? DEMO_ACCOUNTS[0].email : '');
   const [password, setPassword] = useState(DEMO_MODE ? DEMO_PASSWORD : '');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const isRTL = i18n.language === 'ar';
+  const [focused, setFocused] = useState<'email' | 'password' | null>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const handleLogin = () => loginWith(email, password);
 
@@ -53,7 +43,7 @@ const LoginScreen = ({ navigation }: any) => {
         text2: t('auth.welcome_back_courier'),
         position: 'top',
       });
-    } catch (error) {
+    } catch {
       Toast.show({
         type: 'error',
         text1: t('common.error'),
@@ -66,87 +56,78 @@ const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View style={styles.logoPlaceholder}>
-              <Truck size={40} color={theme.colors.primary} />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="light-content" backgroundColor={palette.primary} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={styles.brand}>
+            <View style={styles.logo}>
+              <Truck size={36} color={palette.primary} />
             </View>
-            <Text style={styles.title}>{t('auth.login_title')}</Text>
-            <Text style={styles.subtitle}>{t('auth.login_subtitle')}</Text>
+            <Text variant="title" color={palette.white} style={styles.center}>{t('auth.login_title')}</Text>
+            <Text variant="body" color={palette.primaryMuted} style={styles.center}>{t('auth.login_subtitle')}</Text>
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Mail size={20} color={theme.colors.textMuted} />
-              </View>
+          <View style={styles.card}>
+            <Text variant="label" color={palette.text} style={styles.label}>{t('auth.email')}</Text>
+            <View style={[styles.inputBox, focused === 'email' && styles.inputFocused]}>
+              <Mail size={20} color={focused === 'email' ? palette.primary : palette.textMuted} />
               <TextInput
-                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t('auth.email')}
+                style={styles.input}
+                placeholder="name@company.com"
+                placeholderTextColor={palette.textDisabled}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor={theme.colors.textMuted}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                onFocus={() => setFocused('email')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel={t('auth.email')}
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Lock size={20} color={theme.colors.textMuted} />
-              </View>
+            <Text variant="label" color={palette.text} style={styles.label}>{t('auth.password')}</Text>
+            <View style={[styles.inputBox, focused === 'password' && styles.inputFocused]}>
+              <Lock size={20} color={focused === 'password' ? palette.primary : palette.textMuted} />
               <TextInput
-                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t('auth.password')}
+                ref={passwordRef}
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={palette.textDisabled}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                placeholderTextColor={theme.colors.textMuted}
+                autoComplete="password"
+                textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel={t('auth.password')}
               />
-              <TouchableOpacity
-                style={styles.inputIcon}
+              <Pressable
                 onPress={() => setShowPassword(v => !v)}
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? t('auth.hide_password') : t('auth.show_password')}
               >
-                {showPassword ? (
-                  <EyeOff size={20} color={theme.colors.textMuted} />
-                ) : (
-                  <Eye size={20} color={theme.colors.textMuted} />
-                )}
-              </TouchableOpacity>
+                {showPassword ? <EyeOff size={20} color={palette.textMuted} /> : <Eye size={20} color={palette.textMuted} />}
+              </Pressable>
             </View>
 
-            <TouchableOpacity
-              style={[styles.button, loading && styles.disabledButton]}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={theme.colors.white} />
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>{t('common.login')}</Text>
-                  <ChevronRight size={20} color={theme.colors.white} style={[{ marginStart: 8 }, isRTL && { transform: [{ rotate: '180deg' }] }]} />
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.signupLink} onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.signupLinkText}>{t('signup.join_as_freelancer')}</Text>
-            </TouchableOpacity>
+            <Button label={t('common.login')} trailingIcon={ForwardIcon} onPress={handleLogin} loading={loading} size="lg" fullWidth style={styles.submit} />
+            <Button label={t('signup.join_as_freelancer')} variant="ghost" onPress={() => navigation.navigate('Signup')} fullWidth style={styles.signup} />
 
             {DEMO_MODE && (
               <DemoAccounts
                 title={t('auth.demo_accounts')}
                 accounts={DEMO_ACCOUNTS}
                 loading={loading}
-                accentColor={theme.colors.primary}
+                accentColor={palette.primary}
                 onSelect={account => {
                   setEmail(account.email);
                   setPassword(DEMO_PASSWORD);
@@ -162,86 +143,46 @@ const LoginScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.white },
-  container: {
-    padding: 30,
+  container: { flex: 1, backgroundColor: palette.primary },
+  flex: { flex: 1 },
+  center: { textAlign: 'center' },
+  scroll: { flexGrow: 1, justifyContent: 'flex-end' },
+  brand: { alignItems: 'center', gap: space.xs, paddingHorizontal: space.xxl, paddingTop: space.huge, paddingBottom: space.xxxl },
+  logo: {
+    width: 76,
+    height: 76,
+    borderRadius: radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.white,
+    marginBottom: space.md,
+    ...elevation.raised,
+  },
+  card: {
     flexGrow: 1,
-    justifyContent: 'center',
-    backgroundColor: theme.colors.white,
+    backgroundColor: palette.surface,
+    borderTopLeftRadius: radii.xl + 4,
+    borderTopRightRadius: radii.xl + 4,
+    paddingHorizontal: space.xxl,
+    paddingTop: space.xxl,
+    paddingBottom: space.xxxl,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 50,
-  },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    ...theme.shadows.soft,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.primary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  form: {
-    width: '100%',
-  },
-  inputContainer: {
+  label: { marginBottom: space.sm, marginTop: space.md },
+  inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radius.md,
-    marginBottom: 16,
+    gap: space.md,
+    height: sizes.input,
+    paddingHorizontal: space.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.background,
   },
-  inputIcon: {
-    paddingHorizontal: 15,
-  },
-  input: {
-    flex: 1,
-    height: 60,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  button: {
-    backgroundColor: theme.colors.primary,
-    height: 60,
-    borderRadius: theme.radius.md,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
-    ...theme.shadows.medium,
-  },
-  disabledButton: {
-    backgroundColor: theme.colors.secondary,
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: theme.colors.white,
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-  },
-  signupLink: {
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  signupLinkText: {
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
+  inputFocused: { borderColor: palette.primary, borderWidth: 1.5, backgroundColor: palette.surface },
+  input: { flex: 1, height: '100%', fontSize: 16, color: palette.text },
+  submit: { marginTop: space.xxl },
+  signup: { marginTop: space.sm },
 });
 
 export default LoginScreen;

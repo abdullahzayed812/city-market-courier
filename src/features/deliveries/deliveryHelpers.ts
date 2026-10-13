@@ -1,25 +1,27 @@
 import { Linking } from 'react-native';
 import { Delivery, DeliveryStatus } from '@city-market/shared';
-import { theme } from '../../theme';
+import { Bike, CircleCheck, CircleX, Clock, PackageCheck, Store, type LucideIcon } from 'lucide-react-native';
+import type { Tone } from '@city-market/mobile-ui';
 
 export const ACTIVE_STATUSES: DeliveryStatus[] = [DeliveryStatus.ASSIGNED, DeliveryStatus.PICKED_UP, DeliveryStatus.ON_THE_WAY];
 
 export const isActiveDelivery = (d: Pick<Delivery, 'status'>) => ACTIVE_STATUSES.includes(d.status);
 
-export const statusColor = (status: DeliveryStatus): string => {
+/** Badge tone and icon per status (never color alone). */
+export const statusMeta = (status: DeliveryStatus): { tone: Tone; icon: LucideIcon } => {
   switch (status) {
     case DeliveryStatus.ASSIGNED:
-      return theme.colors.primary;
+      return { tone: 'warning', icon: Store };
     case DeliveryStatus.PICKED_UP:
-      return theme.colors.warning;
+      return { tone: 'brand', icon: PackageCheck };
     case DeliveryStatus.ON_THE_WAY:
-      return theme.colors.info;
+      return { tone: 'info', icon: Bike };
     case DeliveryStatus.DELIVERED:
-      return theme.colors.success;
+      return { tone: 'success', icon: CircleCheck };
     case DeliveryStatus.FAILED:
-      return theme.colors.error;
+      return { tone: 'error', icon: CircleX };
     default:
-      return theme.colors.textMuted;
+      return { tone: 'neutral', icon: Clock };
   }
 };
 

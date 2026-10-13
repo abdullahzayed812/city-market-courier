@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   intro: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     lineHeight: 22,
     marginBottom: 20,
   },
@@ -150,17 +150,17 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 15,
     fontWeight: '700',
-    color: theme.colors.textPrimary,
+    color: theme.colors.text,
     marginBottom: 6,
   },
   sectionBody: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     lineHeight: 22,
   },
   closing: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     lineHeight: 22,
     marginTop: 8,
     marginBottom: 16,

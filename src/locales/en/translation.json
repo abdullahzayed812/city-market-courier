@@ -25,7 +25,14 @@
     "active": "Active",
     "inactive": "Inactive",
     "vendor": "Vendor",
-    "currency": "EGP"
+    "currency": "EGP",
+    "kg": "kg",
+    "error_title": "Couldn't load this",
+    "error_message": "Something went wrong. Please try again.",
+    "offline_title": "You're offline",
+    "offline_message": "Check your connection and try again.",
+    "action_failed": "Couldn't complete the action",
+    "back": "Back"
   },
   "auth": {
     "email": "Email",
@@ -37,7 +44,9 @@
     "login_successful": "Login Successful",
     "welcome_back_courier": "Welcome back, Courier!",
     "login_failed_creds": "Login failed. Please check your credentials.",
-    "demo_accounts": "Demo accounts"
+    "demo_accounts": "Demo accounts",
+    "show_password": "Show password",
+    "hide_password": "Hide password"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -49,7 +58,12 @@
     "working_deliveries": "Working Deliveries",
     "estimated_time": "Estimated Time: {{time}} mins",
     "no_deliveries_assigned": "No deliveries assigned yet",
-    "go_online_to_start": "Go online to start receiving orders!"
+    "go_online_to_start": "Go online to start receiving orders!",
+    "you_are_online": "You're online and receiving orders",
+    "you_are_offline": "You're offline",
+    "your_stats": "Your performance",
+    "delivered_total": "Delivered",
+    "rating": "Rating"
   },
   "couriers": {
     "availability": "Availability",
@@ -120,21 +134,34 @@
     "cash_to_collect": "Collect from customer",
     "cash_collected": "Collected from customer",
     "collect_reminder": "Make sure you collected {{amount}} from the customer.",
-    "report_customer_problem": "Report a customer problem"
+    "report_customer_problem": "Report a customer problem",
+    "next_stop_pickup": "Next: pick up from the store",
+    "next_stop_dropoff": "Next: hand over to the customer",
+    "directions": "Directions",
+    "reason_required": "Write the cancellation reason",
+    "open_task": "Continue task",
+    "current_task": "Current task",
+    "other_active": "Other active deliveries",
+    "items_count": "{{count}} items"
   },
   "earnings": {
     "title": "Earnings",
-    "daily": "Daily",
-    "weekly": "Weekly",
-    "history": "Delivery History",
-    "total_balance": "Total Balance",
-    "this_week": "This Week",
-    "transactional_history": "Transactional History",
     "no_earnings_history": "No earnings history found",
-    "complete_deliveries_hint": "Complete deliveries to see your balance grow!"
+    "complete_deliveries_hint": "Complete deliveries to see your balance grow!",
+    "pending_title": "Not yet settled",
+    "pending_hint": "Delivered orders not yet included in a settlement",
+    "unsettled": "Unsettled deliveries",
+    "delivery_fees": "Delivery fees",
+    "cash_collected": "Cash you collected",
+    "net_payout": "Net payout",
+    "negative_net_hint": "A negative amount means the cash you hold is more than the delivery fees you are owed.",
+    "settlement_history": "Settlement history",
+    "deliveries_count": "{{count}} deliveries",
+    "status_paid": "Paid",
+    "status_pending": "Awaiting payment"
   },
   "profile": {
-    "title": "Profile",
+    "title": "My account",
     "vehicle": "Vehicle Type",
     "availability": "Availability",
     "language": "Language",
@@ -143,11 +170,18 @@
     "vehicle_and_account": "Vehicle & Account",
     "phone_number": "Phone Number",
     "app_settings": "App Settings",
-    "notifications": "Notifications",
-    "privacy_policy": "Privacy Policy",
-    "enabled": "Enabled",
     "not_set": "Not Set",
-    "version_text": "City Market Courier v{{version}}"
+    "version_text": "Version {{version}}",
+    "courier_type": "Account type",
+    "type_freelance": "Freelance courier",
+    "type_office": "Office courier",
+    "license_plate": "License plate",
+    "my_ratings": "My ratings",
+    "account": "Account",
+    "logout_all_confirm_title": "Log out of all devices?",
+    "logout_all_confirm_message": "You'll be logged out on this device and every other device.",
+    "arabic": "العربية",
+    "english": "English"
   },
   "terms": {
     "title": "Terms and Conditions",
@@ -204,7 +238,8 @@
     "delivery_fee": "Fee: {{amount}} EGP",
     "pending_review": "Your account is under review. You can take deliveries once an admin approves it.",
     "suspended": "Your account is suspended. Contact support.",
-    "go_online": "Go online from the dashboard to see nearby deliveries."
+    "go_online": "Go online from the dashboard to see nearby deliveries.",
+    "fee_label": "Fee"
   },
   "signup": {
     "title": "Become a courier",

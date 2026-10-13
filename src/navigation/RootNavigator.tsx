@@ -12,10 +12,10 @@ import {
   Briefcase,
   Banknote,
   User,
-  ChevronLeft,
+
 } from 'lucide-react-native';
-import { TouchableOpacity, Platform, View } from 'react-native';
-import { AppText as Text } from '@city-market/mobile-ui';
+import { TouchableOpacity, View } from 'react-native';
+import { AppText as Text, BackIcon, palette } from '@city-market/mobile-ui';
 import { theme } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -59,24 +59,11 @@ const MainTabNavigator = () => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.white,
-          borderTopWidth: 0,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          height: Platform.OS === 'ios' ? 88 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
-          paddingTop: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 14,
-          fontWeight: 'bold',
-        },
+        tabBarActiveTintColor: palette.primary,
+        tabBarInactiveTintColor: palette.textMuted,
+        tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarBadgeStyle: { backgroundColor: palette.warning, color: palette.white, fontSize: 11 },
       }}
     >
       <Tab.Screen
@@ -171,7 +158,7 @@ const RootNavigator = () => {
                 onPress={() => navigation.goBack()}
                 style={{ marginLeft: 10 }}
               >
-                <ChevronLeft color={theme.colors.primary} size={24} />
+                <BackIcon color={palette.primary} size={24} />
               </TouchableOpacity>
             ) : null,
           headerTitleStyle: { fontWeight: 'bold', color: theme.colors.primary },
@@ -273,8 +260,8 @@ const CourierGate = () => {
           title: t('ratings.my_ratings'),
           headerTitleStyle: { fontWeight: 'bold', color: theme.colors.primary },
           headerLeft: () => (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginEnd: 10 }}>
-              <ChevronLeft color={theme.colors.primary} size={24} />
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginEnd: 10 }} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+              <BackIcon color={palette.primary} size={24} />
             </TouchableOpacity>
           ),
         })}
@@ -286,8 +273,8 @@ const CourierGate = () => {
           title: t('deliveries.details'),
           headerTitleStyle: { fontWeight: 'bold', color: theme.colors.primary },
           headerLeft: () => (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginEnd: 10 }}>
-              <ChevronLeft color={theme.colors.primary} size={24} />
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginEnd: 10 }} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+              <BackIcon color={palette.primary} size={24} />
             </TouchableOpacity>
           ),
         })}

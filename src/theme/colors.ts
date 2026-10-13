@@ -1,17 +1,21 @@
+import { palette } from '@city-market/mobile-ui';
+
+// Legacy key names kept so existing screens keep compiling; values come from
+// the shared CityMarket design tokens.
 export const colors = {
-    primary: '#1A237E', // Deep Indigo/Blue
-    secondary: '#3F51B5', // Indigo
-    accent: '#FFD600', // Bright Amber/Yellow for attention
-    background: '#F8F9FE', // Very light lavender/blue tint background
-    surface: '#FFFFFF',
-    text: '#121212',
-    textMuted: '#666666',
-    white: '#FFFFFF',
-    black: '#000000',
-    error: '#D32F2F',
-    success: '#2E7D32',
-    warning: '#FF9800',
-    info: '#0288D1',
-    border: '#E0E0E0',
-    cardBackground: '#FFFFFF',
+    primary: palette.primary,
+    secondary: palette.primaryPressed,
+    accent: palette.accent,
+    background: palette.background,
+    surface: palette.surface,
+    text: palette.text,
+    textMuted: palette.textMuted,
+    white: palette.white,
+    black: palette.black,
+    error: palette.error,
+    success: palette.success,
+    warning: palette.warning,
+    info: palette.info,
+    border: palette.border,
+    cardBackground: palette.surface,
 };

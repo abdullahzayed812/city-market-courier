@@ -3,34 +3,52 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
+  Pressable,
   Linking,
   Modal,
   TextInput,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { AppText as Text } from '@city-market/mobile-ui';
+import {
+  AppText as Text,
+  Button,
+  Card,
+  IconButton,
+  SectionHeader,
+  StatusBadge,
+  SummaryRow,
+  Divider,
+  LoadingState,
+  EmptyState,
+  apiErrorMessage,
+  palette,
+  radii,
+  sizes,
+  space,
+} from '@city-market/mobile-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Store, MapPin, Phone, Navigation, CheckCircle2, XCircle, Undo2, X, User, Banknote } from 'lucide-react-native';
+import { Store, MapPin, Phone, Navigation, CircleCheck, XCircle, Undo2, X, Banknote, Timer, PackageX } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { DeliveryStatus, EventType } from '@city-market/shared';
 
 import { DeliveryService } from '../services/api/deliveryService';
 import { useSocket } from '../app/SocketContext';
-import { PickupCountdownBadge } from '../components/deliveries/PickupCountdownBadge';
+import { useSlaCountdown } from '../hooks/useSlaCountdown';
+import { useFormat } from '../hooks/useFormat';
+import QueryError from '../components/common/QueryError';
 import {
   itemsTotal,
   nextStep,
   openDirections,
   shortOrderId,
-  statusColor,
+  statusMeta,
   statusLabelKey,
 } from '../features/deliveries/deliveryHelpers';
-import { theme } from '../theme';
 
 // Customer-side problems: the order fails and the customer is penalised.
 const CANCEL_REASONS = [
@@ -40,9 +58,65 @@ const CANCEL_REASONS = [
   'cancel_reason_other',
 ] as const;
 
+const PickupCountdown = ({ deadline, label }: { deadline?: Date | string | null; label: string }) => {
+  const { remainingSeconds, isExpired, isWarning, formattedTime } = useSlaCountdown(deadline);
+  if (!deadline || isExpired || remainingSeconds <= 0) return null;
+  const fg = isWarning ? palette.error : palette.warning;
+  return (
+    <View style={[styles.countdown, { backgroundColor: isWarning ? palette.errorSoft : palette.warningSoft }]}>
+      <Timer size={22} color={fg} />
+      <Text variant="bodyStrong" color={fg} style={styles.flex}>{label}</Text>
+      <Text variant="display" color={fg} style={styles.tabular}>{formattedTime}</Text>
+    </View>
+  );
+};
+
+interface PlaceProps {
+  kind: 'pickup' | 'dropoff';
+  title?: string;
+  address: string;
+  current: boolean;
+  onDirections: () => void;
+  onCall?: () => void;
+  directionsLabel: string;
+  callLabel?: string;
+}
+
+/** One stop on the route; the current stop is emphasised and its actions are large. */
+const Place = ({ kind, title, address, current, onDirections, onCall, directionsLabel, callLabel }: PlaceProps) => {
+  const Icon = kind === 'pickup' ? Store : MapPin;
+  return (
+    <Card style={[styles.place, current && styles.placeCurrent]}>
+      <View style={styles.placeHead}>
+        <View style={[styles.placeIcon, kind === 'pickup' ? styles.placeIconPickup : styles.placeIconDrop]}>
+          <Icon size={20} color={kind === 'pickup' ? palette.primary : palette.accentText} />
+        </View>
+        <View style={styles.flex}>
+          {title ? <Text variant="bodyStrong" color={palette.text}>{title}</Text> : null}
+          <Text variant={current ? 'subheading' : 'body'} color={current ? palette.text : palette.textSecondary}>{address}</Text>
+        </View>
+      </View>
+      <View style={styles.placeActions}>
+        <Button
+          label={directionsLabel}
+          icon={Navigation}
+          variant={current ? 'primary' : 'secondary'}
+          size={current ? 'md' : 'sm'}
+          onPress={onDirections}
+          style={styles.flex}
+        />
+        {onCall && callLabel ? (
+          <Button label={callLabel} icon={Phone} variant="outline" size={current ? 'md' : 'sm'} onPress={onCall} style={styles.flex} />
+        ) : null}
+      </View>
+    </Card>
+  );
+};
+
 const DeliveryDetailsScreen = ({ route, navigation }: any) => {
   const { deliveryId } = route.params as { deliveryId: string };
   const { t } = useTranslation();
+  const { money, weight } = useFormat();
   const queryClient = useQueryClient();
   const { socket } = useSocket();
 
@@ -51,7 +125,7 @@ const DeliveryDetailsScreen = ({ route, navigation }: any) => {
   const [reason, setReason] = useState<string | null>(null);
   const [customReason, setCustomReason] = useState('');
 
-  const { data: delivery, isLoading, isError, refetch, isRefetching } = useQuery({
+  const { data: delivery, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['delivery', deliveryId],
     queryFn: () => DeliveryService.getDeliveryById(deliveryId),
   });
@@ -72,7 +146,7 @@ const DeliveryDetailsScreen = ({ route, navigation }: any) => {
     queryClient.invalidateQueries({ queryKey: ['activeDeliveries'] });
     queryClient.invalidateQueries({ queryKey: ['courierProfile'] });
   };
-  const onError = (err: any) => Toast.show({ type: 'error', text1: err?.response?.data?.message || t('common.error') });
+  const onError = (err: unknown) => Toast.show({ type: 'error', text1: t('common.action_failed'), text2: apiErrorMessage(err) });
 
   const statusMutation = useMutation({
     mutationFn: (status: DeliveryStatus) => DeliveryService.updateStatus(deliveryId, { status, vendorOrderId: delivery?.vendorOrderId ?? '' }),
@@ -103,31 +177,32 @@ const DeliveryDetailsScreen = ({ route, navigation }: any) => {
     onError,
   });
 
-  if (isLoading) {
+  if (isLoading) return <LoadingState style={styles.container} />;
+
+  if (!delivery) {
+    // 404: released, reassigned or taken back to the pool.
+    const gone = !error || (error as any)?.response?.status === 404;
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <View style={styles.container}>
+        {gone ? (
+          <EmptyState icon={PackageX} title={t('deliveries.not_found')} actionLabel={t('common.retry')} onAction={() => refetch()} />
+        ) : (
+          <QueryError error={error} onRetry={refetch} retrying={isRefetching} />
+        )}
       </View>
     );
   }
 
-  if (isError || !delivery) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.muted}>{t('deliveries.not_found')}</Text>
-        <TouchableOpacity style={styles.retry} onPress={() => refetch()}>
-          <Text style={styles.retryText}>{t('common.retry')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const color = statusColor(delivery.status);
+  const meta = statusMeta(delivery.status);
   const step = nextStep(delivery.status);
   const isAssigned = delivery.status === DeliveryStatus.ASSIGNED;
+  const isDelivered = delivery.status === DeliveryStatus.DELIVERED;
   const items = itemsTotal(delivery);
   const fee = Number(delivery.deliveryFee || 0);
+  const toCollect = items + fee;
   const busy = statusMutation.isPending || cancelMutation.isPending || releaseMutation.isPending;
+  const otherReason = reason === 'cancel_reason_other';
+  const canSubmitCancel = !!reason && (!otherReason || customReason.trim().length > 0);
 
   const confirmRelease = () =>
     Alert.alert(t('deliveries.release_title'), t('deliveries.release_message'), [
@@ -136,333 +211,331 @@ const DeliveryDetailsScreen = ({ route, navigation }: any) => {
     ]);
 
   const submitCancel = () => {
-    if (!reason) return;
-    const text = reason === 'cancel_reason_other' ? customReason.trim() || t(`deliveries.${reason}`) : t(`deliveries.${reason}`);
-    cancelMutation.mutate(text);
+    if (!canSubmitCancel || !reason) return;
+    cancelMutation.mutate(otherReason ? customReason.trim() : t(`deliveries.${reason}`));
   };
 
+  const callCustomer = delivery.customerPhone ? () => Linking.openURL(`tel:${delivery.customerPhone}`) : undefined;
+
+  const pickups = (delivery.pickupLocations ?? []).map(pl => ({
+    pl,
+    vendorName: delivery.vendorOrders?.find((vo: any) => vo.id === pl.vendorOrderId)?.vendorName as string | undefined,
+  }));
+  const pickupPlaces = pickups.map(({ pl, vendorName }) => (
+    <Place
+      key={pl.id}
+      kind="pickup"
+      title={vendorName}
+      address={pl.address}
+      current={isAssigned}
+      onDirections={() => openDirections(pl.latitude, pl.longitude, pl.address)}
+      directionsLabel={t('deliveries.directions')}
+    />
+  ));
+  const dropoffPlace = (
+    <Place
+      kind="dropoff"
+      address={delivery.deliveryAddress}
+      current={!isAssigned && !isDelivered}
+      onDirections={() => openDirections(delivery.deliveryLatitude, delivery.deliveryLongitude, delivery.deliveryAddress)}
+      onCall={callCustomer}
+      directionsLabel={t('deliveries.directions')}
+      callLabel={t('deliveries.call_customer')}
+    />
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}>
-        {/* Status */}
-        <View style={styles.headerRow}>
-          <Text style={styles.orderId}>{shortOrderId(delivery)}</Text>
-          <View style={[styles.badge, { backgroundColor: color + '18' }]}>
-            <Text style={[styles.badgeText, { color }]}>{t(statusLabelKey(delivery.status))}</Text>
-          </View>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={palette.primary} colors={[palette.primary]} />}
+      >
+        <View style={styles.headRow}>
+          <Text variant="title" color={palette.text}>{shortOrderId(delivery)}</Text>
+          <StatusBadge label={t(statusLabelKey(delivery.status))} tone={meta.tone} icon={meta.icon} />
         </View>
-        {isAssigned && (
-          <View style={styles.countdownRow}>
-            <Text style={styles.muted}>{t('deliveries.pickup_before')}</Text>
-            <PickupCountdownBadge deadline={delivery.pickupDeadline} />
-          </View>
-        )}
+        {isAssigned ? <PickupCountdown deadline={delivery.pickupDeadline} label={t('deliveries.pickup_before')} /> : null}
 
-        {/* Pickups */}
-        <Text style={styles.section}>{t('deliveries.pickup_location')}</Text>
-        {delivery.pickupLocations?.map(pl => {
-          const vendor = delivery.vendorOrders?.find((vo: any) => vo.id === pl.vendorOrderId);
-          return (
-            <View key={pl.id} style={styles.card}>
-              <View style={styles.placeRow}>
-                <Store size={18} color={theme.colors.warning} />
-                <View style={styles.placeText}>
-                  {vendor?.vendorName && <Text style={styles.placeName}>{vendor.vendorName}</Text>}
-                  <Text style={styles.placeAddress}>{pl.address}</Text>
-                </View>
-                <TouchableOpacity style={styles.iconButton} onPress={() => openDirections(pl.latitude, pl.longitude, pl.address)}>
-                  <Navigation size={18} color={theme.colors.primary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* Customer */}
-        <Text style={styles.section}>{t('deliveries.delivery_destination')}</Text>
-        <View style={styles.card}>
-          <View style={styles.placeRow}>
-            <MapPin size={18} color={theme.colors.error} />
-            <Text style={[styles.placeText, styles.placeAddress]}>{delivery.deliveryAddress}</Text>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => openDirections(delivery.deliveryLatitude, delivery.deliveryLongitude, delivery.deliveryAddress)}
-            >
-              <Navigation size={18} color={theme.colors.primary} />
-            </TouchableOpacity>
+        {/* Cash is what the courier must not get wrong: keep it near the top. */}
+        <Card style={[styles.cash, isDelivered && styles.cashDone]}>
+          <View style={styles.cashHead}>
+            <Banknote size={24} color={isDelivered ? palette.success : palette.primary} />
+            <Text variant="subheading" color={palette.text} style={styles.flex}>
+              {t(isDelivered ? 'deliveries.cash_collected' : 'deliveries.cash_to_collect')}
+            </Text>
+            <Text variant="title" color={isDelivered ? palette.success : palette.primary} style={styles.tabular}>{money(toCollect)}</Text>
           </View>
-          {delivery.customerPhone && (
-            <View style={[styles.placeRow, styles.customerRow]}>
-              <User size={18} color={theme.colors.textMuted} />
-              <Text style={[styles.placeText, styles.placeAddress]}>{delivery.customerPhone}</Text>
-              <TouchableOpacity style={[styles.iconButton, styles.callButton]} onPress={() => Linking.openURL(`tel:${delivery.customerPhone}`)}>
-                <Phone size={18} color={theme.colors.white} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+          <Divider spacing={space.sm} />
+          <SummaryRow label={t('deliveries.items_price')} value={money(items)} />
+          <SummaryRow label={t('deliveries.delivery_fee')} value={money(fee)} />
+        </Card>
+
+        {/* Current stop first */}
+        <SectionHeader
+          title={isDelivered ? t('deliveries.delivery_destination') : isAssigned ? t('deliveries.next_stop_pickup') : t('deliveries.next_stop_dropoff')}
+          style={styles.sectionGap}
+        />
+        {isAssigned ? pickupPlaces : dropoffPlace}
+        {!isDelivered ? (
+          <>
+            <SectionHeader title={isAssigned ? t('deliveries.delivery_destination') : t('deliveries.pickup_location')} style={styles.sectionGap} />
+            {isAssigned ? dropoffPlace : pickupPlaces}
+          </>
+        ) : null}
 
         {/* Items */}
-        <Text style={styles.section}>{t('deliveries.order_items')}</Text>
-        <View style={styles.card}>
-          {!delivery.vendorOrders?.length && <Text style={styles.muted}>{t('deliveries.no_items_found')}</Text>}
-          {delivery.vendorOrders?.map((vo: any) => (
-            <View key={vo.id} style={styles.vendorBlock}>
-              <Text style={styles.vendorName}>{vo.vendorName || t('common.vendor')}</Text>
+        <SectionHeader title={t('deliveries.order_items')} style={styles.sectionGap} />
+        <Card>
+          {!delivery.vendorOrders?.length ? (
+            <Text variant="body" color={palette.textMuted}>{t('deliveries.no_items_found')}</Text>
+          ) : null}
+          {delivery.vendorOrders?.map((vo: any, vi: number) => (
+            <View key={vo.id} style={[styles.vendorBlock, vi > 0 && styles.vendorGap]}>
+              <View style={styles.inline}>
+                <Store size={14} color={palette.primary} />
+                <Text variant="label" color={palette.primary}>{vo.vendorName || t('common.vendor')}</Text>
+              </View>
               {vo.items?.map((it: any) => {
                 const grams = it.actualWeightGrams ?? it.requestedWeightGrams;
+                const qty = [it.quantity ? `× ${it.quantity}` : null, grams ? weight(grams) : null].filter(Boolean).join(' · ');
                 return (
                   <View key={it.id} style={styles.itemRow}>
-                    <Text style={styles.itemName} numberOfLines={2}>
-                      {it.productName}
-                      <Text style={styles.muted}>
-                        {it.quantity ? `  x${it.quantity}` : ''}
-                        {grams ? `  (${(grams / 1000).toFixed(2)} kg)` : ''}
-                      </Text>
-                    </Text>
-                    <Text style={styles.itemPrice}>
-                      {Number(it.totalPrice || 0).toFixed(2)} {t('common.currency')}
-                    </Text>
+                    <View style={styles.flex}>
+                      <Text variant="body" color={palette.text}>{it.productName}</Text>
+                      {qty ? <Text variant="caption" color={palette.textMuted}>{qty}</Text> : null}
+                    </View>
+                    <Text variant="bodyStrong" color={palette.text} style={styles.tabular}>{money(it.totalPrice)}</Text>
                   </View>
                 );
               })}
             </View>
           ))}
-        </View>
+        </Card>
 
-        {/* Money */}
-        <View style={[styles.card, styles.moneyCard]}>
-          <MoneyRow label={t('deliveries.items_price')} value={items} currency={t('common.currency')} />
-          <MoneyRow label={t('deliveries.delivery_fee')} value={fee} currency={t('common.currency')} />
-          <View style={styles.divider} />
-          <View style={styles.totalRow}>
-            <Banknote size={18} color={theme.colors.success} />
-            <Text style={styles.totalLabel}>
-              {t(delivery.status === DeliveryStatus.DELIVERED ? 'deliveries.cash_collected' : 'deliveries.cash_to_collect')}
-            </Text>
-            <Text style={styles.totalValue}>
-              {(items + fee).toFixed(2)} {t('common.currency')}
-            </Text>
+        {isDelivered ? (
+          <View style={styles.done}>
+            <CircleCheck size={22} color={palette.success} />
+            <Text variant="bodyStrong" color={palette.success}>{t('deliveries.delivery_successful')}</Text>
           </View>
-        </View>
-
-        {delivery.status === DeliveryStatus.DELIVERED && (
-          <View style={styles.doneBox}>
-            <CheckCircle2 size={20} color={theme.colors.success} />
-            <Text style={styles.doneText}>{t('deliveries.delivery_successful')}</Text>
-          </View>
-        )}
+        ) : null}
 
         {/* Secondary actions: only before pickup */}
-        {isAssigned && (
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity style={styles.dangerOutline} onPress={() => { setReason(null); setCustomReason(''); setCancelVisible(true); }} disabled={busy}>
-              <XCircle size={16} color={theme.colors.error} />
-              <Text style={styles.dangerText}>{t('deliveries.report_customer_problem')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.mutedOutline} onPress={confirmRelease} disabled={busy}>
-              <Undo2 size={16} color={theme.colors.textMuted} />
-              <Text style={styles.mutedText}>{t('deliveries.release_delivery')}</Text>
-            </TouchableOpacity>
+        {isAssigned ? (
+          <View style={styles.secondary}>
+            <Button
+              label={t('deliveries.report_customer_problem')}
+              icon={XCircle}
+              variant="dangerOutline"
+              onPress={() => {
+                setReason(null);
+                setCustomReason('');
+                setCancelVisible(true);
+              }}
+              disabled={busy}
+              fullWidth
+            />
+            <Button label={t('deliveries.release_delivery')} icon={Undo2} variant="ghost" onPress={confirmRelease} disabled={busy} fullWidth />
           </View>
-        )}
+        ) : null}
       </ScrollView>
 
       {/* Primary action */}
-      {step && (
+      {step ? (
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={[styles.primary, busy && styles.disabled]} onPress={() => setConfirmVisible(true)} disabled={busy}>
-            {statusMutation.isPending ? <ActivityIndicator color={theme.colors.white} /> : <Text style={styles.primaryText}>{t(step.labelKey)}</Text>}
-          </TouchableOpacity>
+          <Button label={t(step.labelKey)} onPress={() => setConfirmVisible(true)} disabled={busy} loading={statusMutation.isPending} size="lg" fullWidth />
         </View>
-      )}
+      ) : null}
 
       {/* Confirm status change */}
       <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>{step ? t(step.labelKey) : ''}</Text>
-            <Text style={styles.modalBody}>
-              {t('deliveries.update_status_description')}
-              {step?.status === DeliveryStatus.DELIVERED ? `\n\n${t('deliveries.collect_reminder', { amount: (items + fee).toFixed(2) })}` : ''}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setConfirmVisible(false)} disabled={statusMutation.isPending}>
-                <Text style={styles.mutedText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirm} onPress={() => step && statusMutation.mutate(step.status)} disabled={statusMutation.isPending}>
-                {statusMutation.isPending ? <ActivityIndicator color={theme.colors.white} size="small" /> : <Text style={styles.primaryText}>{t('common.confirm')}</Text>}
-              </TouchableOpacity>
+        <View style={styles.overlayCenter}>
+          <View style={styles.dialog}>
+            <Text variant="heading" color={palette.text}>{step ? t(step.labelKey) : ''}</Text>
+            <Text variant="body" color={palette.textSecondary}>{t('deliveries.update_status_description')}</Text>
+            {step?.status === DeliveryStatus.DELIVERED ? (
+              <View style={styles.collectBox}>
+                <Banknote size={22} color={palette.primary} />
+                <Text variant="bodyStrong" color={palette.text} style={styles.flex}>
+                  {t('deliveries.collect_reminder', { amount: money(toCollect) })}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.dialogActions}>
+              <Button label={t('common.cancel')} variant="outline" onPress={() => setConfirmVisible(false)} disabled={statusMutation.isPending} style={styles.flex} />
+              <Button
+                label={t('common.confirm')}
+                onPress={() => step && statusMutation.mutate(step.status)}
+                loading={statusMutation.isPending}
+                style={styles.flex}
+              />
             </View>
           </View>
         </View>
       </Modal>
 
       {/* Customer problem reasons */}
-      <Modal visible={cancelVisible} transparent animationType="fade" onRequestClose={() => setCancelVisible(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('deliveries.cancel_delivery_title')}</Text>
-              <TouchableOpacity onPress={() => setCancelVisible(false)} hitSlop={10}>
-                <X size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
+      <Modal visible={cancelVisible} transparent animationType="slide" onRequestClose={() => setCancelVisible(false)}>
+        <KeyboardAvoidingView style={styles.overlayBottom} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <SafeAreaView edges={['bottom']} style={styles.sheet}>
+            <View style={styles.sheetHead}>
+              <View style={styles.flex}>
+                <Text variant="heading" color={palette.text}>{t('deliveries.cancel_delivery_title')}</Text>
+                <Text variant="caption" color={palette.textMuted}>{t('deliveries.cancel_delivery_body')}</Text>
+              </View>
+              <IconButton icon={X} variant="soft" size={36} onPress={() => setCancelVisible(false)} accessibilityLabel={t('common.cancel')} />
             </View>
-            <Text style={styles.modalBody}>{t('deliveries.cancel_delivery_body')}</Text>
-            {CANCEL_REASONS.map(key => (
-              <TouchableOpacity key={key} style={[styles.reason, reason === key && styles.reasonSelected]} onPress={() => setReason(key)}>
-                <View style={[styles.radio, reason === key && styles.radioSelected]} />
-                <Text style={styles.reasonText}>{t(`deliveries.${key}`)}</Text>
-              </TouchableOpacity>
-            ))}
-            {reason === 'cancel_reason_other' && (
-              <TextInput
-                style={styles.reasonInput}
-                placeholder={t('deliveries.cancel_reason_placeholder')}
-                placeholderTextColor={theme.colors.textMuted}
-                value={customReason}
-                onChangeText={setCustomReason}
-                multiline
-              />
-            )}
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setCancelVisible(false)} disabled={cancelMutation.isPending}>
-                <Text style={styles.mutedText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalConfirm, styles.modalDanger, (!reason || cancelMutation.isPending) && styles.disabled]}
-                onPress={submitCancel}
-                disabled={!reason || cancelMutation.isPending}
-              >
-                {cancelMutation.isPending ? <ActivityIndicator color={theme.colors.white} size="small" /> : <Text style={styles.primaryText}>{t('deliveries.cancel_confirm')}</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+            {CANCEL_REASONS.map(key => {
+              const selected = reason === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => setReason(key)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  style={[styles.reason, selected && styles.reasonSelected]}
+                >
+                  <View style={[styles.radio, selected && styles.radioOn]}>{selected ? <View style={styles.radioDot} /> : null}</View>
+                  <Text variant="body" color={palette.text} style={styles.flex}>{t(`deliveries.${key}`)}</Text>
+                </Pressable>
+              );
+            })}
+            {otherReason ? (
+              <>
+                <TextInput
+                  style={styles.reasonInput}
+                  placeholder={t('deliveries.cancel_reason_placeholder')}
+                  placeholderTextColor={palette.textDisabled}
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  multiline
+                  maxLength={300}
+                  autoFocus
+                />
+                {!customReason.trim() ? (
+                  <Text variant="caption" color={palette.textMuted}>{t('deliveries.reason_required')}</Text>
+                ) : null}
+              </>
+            ) : null}
+            <Button
+              label={t('deliveries.cancel_confirm')}
+              icon={PackageX}
+              variant="danger"
+              onPress={submitCancel}
+              disabled={!canSubmitCancel}
+              loading={cancelMutation.isPending}
+              size="lg"
+              fullWidth
+              style={styles.sheetSubmit}
+            />
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 };
 
-const MoneyRow = ({ label, value, currency }: { label: string; value: number; currency: string }) => (
-  <View style={styles.moneyRow}>
-    <Text style={styles.muted}>{label}</Text>
-    <Text style={styles.moneyValue}>
-      {value.toFixed(2)} {currency}
-    </Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  content: { padding: 16, paddingBottom: 32 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderId: { fontSize: 22, fontWeight: 'bold', color: theme.colors.text },
-  badge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14 },
-  badgeText: { fontWeight: 'bold', fontSize: 13 },
-  countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  section: { fontSize: 15, fontWeight: 'bold', color: theme.colors.text, marginTop: 20, marginBottom: 8 },
-  card: { backgroundColor: theme.colors.white, borderRadius: theme.radius.md, padding: 14, marginBottom: 8, ...theme.shadows.soft },
-  placeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  placeText: { flex: 1 },
-  placeName: { fontWeight: 'bold', color: theme.colors.text },
-  placeAddress: { color: theme.colors.text },
-  customerRow: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colors.border },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  callButton: { backgroundColor: theme.colors.success },
-  vendorBlock: { marginBottom: 10 },
-  vendorName: { fontWeight: 'bold', color: theme.colors.primary, marginBottom: 6 },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4, gap: 12 },
-  itemName: { flex: 1, color: theme.colors.text },
-  itemPrice: { color: theme.colors.text, fontWeight: '600' },
-  moneyCard: { marginTop: 12 },
-  moneyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  moneyValue: { color: theme.colors.text, fontWeight: '600' },
-  divider: { height: 1, backgroundColor: theme.colors.border, marginVertical: 8 },
-  totalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  totalLabel: { flex: 1, fontWeight: 'bold', color: theme.colors.text },
-  totalValue: { fontSize: 18, fontWeight: 'bold', color: theme.colors.success },
-  doneBox: {
+  container: { flex: 1, backgroundColor: palette.background },
+  content: { padding: space.lg, gap: space.md, paddingBottom: space.huge },
+  flex: { flex: 1 },
+  tabular: { fontVariant: ['tabular-nums'] },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  sectionGap: { marginTop: space.sm, marginBottom: 0 },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  countdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 14,
-    marginTop: 12,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.success + '15',
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderRadius: radii.lg,
   },
-  doneText: { color: theme.colors.success, fontWeight: 'bold' },
-  secondaryActions: { marginTop: 20, gap: 10 },
-  dangerOutline: {
+  cash: { borderWidth: 1.5, borderColor: palette.primaryMuted },
+  cashDone: { borderColor: palette.success, backgroundColor: palette.successSoft },
+  cashHead: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  place: { gap: space.md },
+  placeCurrent: { borderWidth: 1.5, borderColor: palette.primary },
+  placeHead: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
+  placeIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  placeIconPickup: { backgroundColor: palette.primarySoft },
+  placeIconDrop: { backgroundColor: palette.accentSoft },
+  placeActions: { flexDirection: 'row', gap: space.sm },
+  vendorBlock: { gap: space.sm },
+  vendorGap: { marginTop: space.lg },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
+  done: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    height: 46,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.error + '60',
+    justifyContent: 'center',
+    gap: space.sm,
+    padding: space.lg,
+    borderRadius: radii.lg,
+    backgroundColor: palette.successSoft,
   },
-  dangerText: { color: theme.colors.error, fontWeight: 'bold' },
-  mutedOutline: {
+  secondary: { gap: space.sm, marginTop: space.md },
+  bottomBar: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.md,
+    backgroundColor: palette.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.border,
+  },
+  overlayCenter: { flex: 1, justifyContent: 'center', padding: space.xl, backgroundColor: palette.overlay },
+  overlayBottom: { flex: 1, justifyContent: 'flex-end', backgroundColor: palette.overlay },
+  dialog: { gap: space.lg, padding: space.xl, borderRadius: radii.xl, backgroundColor: palette.surface },
+  dialogActions: { flexDirection: 'row', gap: space.sm },
+  collectBox: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    height: 46,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radii.md,
+    backgroundColor: palette.primarySoft,
   },
-  mutedText: { color: theme.colors.textMuted, fontWeight: 'bold' },
-  muted: { color: theme.colors.textMuted },
-  retry: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 10, borderRadius: theme.radius.md, backgroundColor: theme.colors.primary },
-  retryText: { color: theme.colors.white, fontWeight: 'bold' },
-  bottomBar: { padding: 16, backgroundColor: theme.colors.white, borderTopWidth: 1, borderTopColor: theme.colors.border },
-  primary: { height: 54, borderRadius: theme.radius.md, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center' },
-  primaryText: { color: theme.colors.white, fontWeight: 'bold', fontSize: 16 },
-  disabled: { opacity: 0.6 },
-  overlay: { flex: 1, backgroundColor: '#00000066', justifyContent: 'center', padding: 24 },
-  modal: { backgroundColor: theme.colors.white, borderRadius: theme.radius.md, padding: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
-  modalBody: { color: theme.colors.textMuted, marginTop: 8, marginBottom: 16, lineHeight: 20 },
-  modalButtons: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  modalCancel: { flex: 1, height: 48, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center' },
-  modalConfirm: { flex: 1, height: 48, borderRadius: theme.radius.md, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center' },
-  modalDanger: { backgroundColor: theme.colors.error },
+  sheet: {
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    paddingBottom: space.md,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    backgroundColor: palette.surface,
+  },
+  sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, marginBottom: space.sm },
   reason: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: theme.radius.md,
+    gap: space.md,
+    minHeight: sizes.buttonLg,
+    paddingHorizontal: space.md,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 8,
+    borderColor: palette.border,
   },
-  reasonSelected: { borderColor: theme.colors.error, backgroundColor: theme.colors.error + '08' },
-  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: theme.colors.border },
-  radioSelected: { borderColor: theme.colors.error, backgroundColor: theme.colors.error },
-  reasonText: { color: theme.colors.text },
+  reasonSelected: { borderColor: palette.error, backgroundColor: palette.errorSoft },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: palette.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOn: { borderColor: palette.error },
+  radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: palette.error },
   reasonInput: {
-    minHeight: 70,
+    minHeight: 88,
+    padding: space.md,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: 10,
-    color: theme.colors.text,
+    borderColor: palette.borderStrong,
+    fontSize: 15,
+    color: palette.text,
     textAlignVertical: 'top',
-    marginBottom: 8,
   },
+  sheetSubmit: { marginTop: space.sm },
 });
 
 export default DeliveryDetailsScreen;

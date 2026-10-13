@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { AppText as Text } from '@city-market/mobile-ui';
+import { StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { EmptyState, LoadingState, ScreenHeader, palette, space } from '@city-market/mobile-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { PackageSearch } from 'lucide-react-native';
 
 import { useAvailableJobs } from '../hooks/useAvailableJobs';
 import { JobCard } from '../components/deliveries/JobCard';
-import { theme } from '../theme';
 
 // Freelance pool: deliveries no office took, near this courier. First to claim wins.
 const JobsScreen = ({ navigation }: any) => {
@@ -15,46 +15,38 @@ const JobsScreen = ({ navigation }: any) => {
     navigation.navigate('DeliveryDetails', { deliveryId: id }),
   );
 
-  if (jobsQuery.isLoading && canWork) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>{t('jobs.title')}</Text>
-      <FlatList
-        data={jobs}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={jobsQuery.isRefetching} onRefresh={jobsQuery.refetch} />}
-        ListEmptyComponent={<Text style={styles.empty}>{emptyMessage()}</Text>}
-        renderItem={({ item }) => <JobCard job={item} claiming={claimMutation.isPending} onClaim={id => claimMutation.mutate(id)} />}
-      />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenHeader title={t('jobs.title')} />
+      {jobsQuery.isLoading && canWork ? (
+        <LoadingState />
+      ) : (
+        <FlatList
+          data={jobs}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={jobsQuery.isRefetching} onRefresh={jobsQuery.refetch} tintColor={palette.primary} colors={[palette.primary]} />
+          }
+          // The hook explains why the list is empty (offline, under review, API error…)
+          ListEmptyComponent={
+            <EmptyState
+              icon={PackageSearch}
+              title={emptyMessage()}
+              actionLabel={canWork ? t('common.retry') : undefined}
+              onAction={canWork ? () => jobsQuery.refetch() : undefined}
+            />
+          }
+          renderItem={({ item }) => <JobCard job={item} claiming={claimMutation.isPending} onClaim={id => claimMutation.mutate(id)} />}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  list: { padding: 16, flexGrow: 1 },
-  empty: {
-    textAlign: 'center',
-    color: theme.colors.textMuted,
-    marginTop: 48,
-    paddingHorizontal: 24,
-  },
+  container: { flex: 1, backgroundColor: palette.background },
+  list: { padding: space.lg, gap: space.md, flexGrow: 1 },
 });
 
 export default JobsScreen;

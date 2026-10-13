@@ -1,192 +1,170 @@
 import React from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, StatusBar } from 'react-native';
 import {
-  View,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  StatusBar,
-} from 'react-native';
-import { AppText as Text } from '@city-market/mobile-ui';
+  AppText as Text,
+  Card,
+  ScreenHeader,
+  SectionHeader,
+  StatusBadge,
+  SummaryRow,
+  Divider,
+  EmptyState,
+  LoadingState,
+  palette,
+  space,
+} from '@city-market/mobile-ui';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Wallet, TrendingUp, Calendar } from 'lucide-react-native';
+import { Wallet, CircleCheck, Hourglass, CalendarRange, Info } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeliveryService } from '../services/api/deliveryService';
-import { theme } from '../theme';
+import { useFormat } from '../hooks/useFormat';
+import QueryError from '../components/common/QueryError';
 
-const useAuthCourierId = () => {
-  const { data: profile } = useQuery({
-    queryKey: ['courierProfile'],
-    queryFn: DeliveryService.getProfile,
-  });
-  return profile?.id ?? null;
-};
+const formatDate = (d: string | Date | null | undefined) => (d ? new Date(d).toLocaleDateString() : '—');
 
-const StatusBadge = ({ status }: { status: string }) => (
-  <View style={[styles.badge, status === 'PAID' ? styles.badgePaid : styles.badgePending]}>
-    <Text style={[styles.badgeText, status === 'PAID' ? styles.badgeTextPaid : styles.badgeTextPending]}>
-      {status}
-    </Text>
-  </View>
-);
-
+// All amounts are the server's figures; nothing is recomputed here.
 const EarningsScreen = () => {
   const { t } = useTranslation();
-  const courierId = useAuthCourierId();
+  const { money } = useFormat();
 
-  const { data: pendingData, isLoading: isPendingLoading } = useQuery({
+  const profileQuery = useQuery({ queryKey: ['courierProfile'], queryFn: DeliveryService.getProfile });
+  const courierId = profileQuery.data?.id ?? null;
+
+  const pendingQuery = useQuery({
     queryKey: ['courierPendingEarnings', courierId],
     queryFn: () => DeliveryService.getCourierPendingEarnings(courierId!),
     enabled: !!courierId,
   });
-
-  const { data: settlements, isLoading: isSettlementsLoading } = useQuery({
+  const historyQuery = useQuery({
     queryKey: ['courierSettlements', courierId],
     queryFn: () => DeliveryService.getCourierSettlements(courierId!),
     enabled: !!courierId,
   });
 
-  const isLoading = isPendingLoading || isSettlementsLoading || !courierId;
+  const refreshing = pendingQuery.isRefetching || historyQuery.isRefetching || profileQuery.isRefetching;
+  const refresh = () => {
+    if (!courierId) profileQuery.refetch();
+    pendingQuery.refetch();
+    historyQuery.refetch();
+  };
 
-  const renderSettlementItem = ({ item }: { item: any }) => (
-    <View style={styles.historyCard}>
-      <View style={styles.historyInfo}>
-        <View style={styles.iconCircle}>
-          <TrendingUp size={18} color={theme.colors.success} />
-        </View>
-        <View>
-          <Text style={styles.cardTitle}>
-            {new Date(item.periodStart).toLocaleDateString()} – {new Date(item.periodEnd).toLocaleDateString()}
-          </Text>
-          <View style={styles.dateRow}>
-            <Calendar size={12} color={theme.colors.textMuted} />
-            <Text style={styles.dateText}>{item.deliveryCount} {t('earnings.deliveries', 'deliveries')}</Text>
-          </View>
-        </View>
-      </View>
-      <View style={styles.amountContainer}>
-        <Text style={styles.amountText}>EGP {Number(item.netPayout).toLocaleString()}</Text>
-        <StatusBadge status={item.status} />
-      </View>
-    </View>
-  );
+  const header = <ScreenHeader title={t('earnings.title')} />;
+  const error = profileQuery.error ?? pendingQuery.error ?? historyQuery.error;
+  const loading = profileQuery.isLoading || (!!courierId && (pendingQuery.isLoading || historyQuery.isLoading));
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {header}
+        <LoadingState />
+      </SafeAreaView>
+    );
+  }
+  if (error && !pendingQuery.data && !historyQuery.data) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {header}
+        <QueryError error={error} onRetry={refresh} retrying={refreshing} />
+      </SafeAreaView>
     );
   }
 
+  const pending = pendingQuery.data;
+  const settlements: any[] = historyQuery.data ?? [];
+  const net = Number(pending?.netPayout ?? 0);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
-      <View style={styles.container}>
-        <View style={styles.mainHeader}>
-          <Text style={styles.headerTitle}>{t('earnings.title', 'Earnings')}</Text>
-          <View style={styles.totalCard}>
-            <Text style={styles.totalLabel}>{t('earnings.pending_payout', 'Pending Payout')}</Text>
-            <Text style={styles.totalValue}>EGP {(pendingData?.netPayout || 0).toLocaleString()}</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('earnings.unsettled', 'Unsettled')}</Text>
-                <Text style={styles.statValue}>{pendingData?.unsettledDeliveries || 0}</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('earnings.delivery_fees', 'Fees')}</Text>
-                <Text style={styles.statValue}>EGP {(pendingData?.totalDeliveryFees || 0).toLocaleString()}</Text>
-              </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={palette.surface} />
+      {header}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={palette.primary} colors={[palette.primary]} />}
+      >
+        <Card style={styles.highlight}>
+          <View style={styles.highlightHead}>
+            <View style={styles.highlightIcon}>
+              <Wallet size={22} color={palette.primary} />
+            </View>
+            <View style={styles.flex}>
+              <Text variant="subheading" color={palette.text}>{t('earnings.pending_title')}</Text>
+              <Text variant="caption" color={palette.textMuted}>{t('earnings.pending_hint')}</Text>
             </View>
           </View>
-        </View>
+          <SummaryRow label={t('earnings.unsettled')} value={String(pending?.unsettledDeliveries ?? 0)} />
+          <SummaryRow label={t('earnings.delivery_fees')} value={money(pending?.totalDeliveryFees ?? 0)} />
+          {pending?.totalCashCollected ? (
+            <SummaryRow label={t('earnings.cash_collected')} value={money(pending.totalCashCollected)} emphasis="muted" />
+          ) : null}
+          <Divider />
+          <SummaryRow label={t('earnings.net_payout')} value={money(net)} emphasis={net < 0 ? 'negative' : 'total'} />
+          {net < 0 ? (
+            <View style={styles.note}>
+              <Info size={14} color={palette.textMuted} />
+              <Text variant="caption" color={palette.textMuted} style={styles.flex}>{t('earnings.negative_net_hint')}</Text>
+            </View>
+          ) : null}
+        </Card>
 
-        <View style={styles.content}>
-          <Text style={styles.sectionTitle}>{t('earnings.settlement_history', 'Settlement History')}</Text>
-          <FlatList
-            data={settlements}
-            renderItem={renderSettlementItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Wallet size={56} color={theme.colors.surface} />
-                <Text style={styles.emptyText}>{t('earnings.no_earnings_history', 'No settlements yet')}</Text>
-                <Text style={styles.emptySubText}>{t('earnings.complete_deliveries_hint', 'Complete deliveries to earn')}</Text>
-              </View>
-            }
-          />
-        </View>
-      </View>
+        <SectionHeader title={t('earnings.settlement_history')} style={styles.sectionGap} />
+        {settlements.length === 0 ? (
+          <Card>
+            <EmptyState icon={Wallet} title={t('earnings.no_earnings_history')} message={t('earnings.complete_deliveries_hint')} compact />
+          </Card>
+        ) : (
+          settlements.map(item => {
+            const paid = item.status === 'PAID';
+            return (
+              <Card key={item.id} style={styles.settlement}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.inline}>
+                    <CalendarRange size={16} color={palette.textMuted} />
+                    <Text variant="label" color={palette.text} style={styles.flexShrink}>
+                      {formatDate(item.periodStart)} – {formatDate(item.periodEnd)}
+                    </Text>
+                  </View>
+                  <StatusBadge
+                    size="sm"
+                    tone={paid ? 'success' : 'warning'}
+                    icon={paid ? CircleCheck : Hourglass}
+                    label={paid ? t('earnings.status_paid') : t('earnings.status_pending')}
+                  />
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text variant="caption" color={palette.textMuted}>{t('earnings.deliveries_count', { count: item.deliveryCount })}</Text>
+                  <Text variant="heading" color={palette.text} style={styles.tabular}>{money(item.netPayout)}</Text>
+                </View>
+              </Card>
+            );
+          })
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.primary },
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
-  mainHeader: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.lg,
-    paddingBottom: 40,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: theme.colors.white, marginBottom: 16, textAlign: 'center' },
-  totalCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xl,
-    padding: 22,
+  container: { flex: 1, backgroundColor: palette.background },
+  content: { padding: space.lg, gap: space.md, paddingBottom: space.huge },
+  flex: { flex: 1 },
+  flexShrink: { flexShrink: 1 },
+  tabular: { fontVariant: ['tabular-nums'] },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexShrink: 1 },
+  sectionGap: { marginTop: space.md, marginBottom: 0 },
+  highlight: { borderWidth: 1, borderColor: palette.primaryMuted },
+  highlightHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
+  highlightIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    ...theme.shadows.heavy,
-  },
-  totalLabel: { fontSize: 12, color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
-  totalValue: { fontSize: 36, fontWeight: 'bold', color: theme.colors.primary, marginVertical: 8 },
-  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colors.background },
-  statItem: { alignItems: 'center', flex: 1 },
-  statDivider: { width: 1, backgroundColor: theme.colors.background },
-  statLabel: { fontSize: 10, color: theme.colors.textMuted, textTransform: 'uppercase' },
-  statValue: { fontSize: 14, fontWeight: 'bold', color: theme.colors.secondary, marginTop: 3 },
-  content: { flex: 1, padding: theme.spacing.lg, marginTop: -20 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 14 },
-  listContent: { paddingBottom: 20 },
-  historyCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.lg,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    ...theme.shadows.soft,
-  },
-  historyInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary + '10',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginEnd: 12,
+    backgroundColor: palette.primarySoft,
   },
-  cardTitle: { fontSize: 14, fontWeight: 'bold', color: theme.colors.primary },
-  dateRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
-  dateText: { fontSize: 12, color: theme.colors.textMuted, marginStart: 4 },
-  amountContainer: { alignItems: 'flex-end' },
-  amountText: { fontSize: 15, fontWeight: 'bold', color: theme.colors.success },
-  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, marginTop: 4 },
-  badgePaid: { backgroundColor: '#d1fae5' },
-  badgePending: { backgroundColor: '#fef3c7' },
-  badgeText: { fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase' },
-  badgeTextPaid: { color: '#065f46' },
-  badgeTextPending: { color: '#92400e' },
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
-  emptyText: { marginTop: 14, fontSize: 15, fontWeight: 'bold', color: theme.colors.primary },
-  emptySubText: { marginTop: 4, fontSize: 12, color: theme.colors.textMuted, textAlign: 'center' },
+  note: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm, marginTop: space.sm },
+  settlement: { gap: space.sm },
 });
 
 export default EarningsScreen;

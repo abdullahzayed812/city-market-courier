@@ -25,7 +25,14 @@
     "active": "نشط",
     "inactive": "غير نشط",
     "vendor": "البائع",
-    "currency": "ج.م"
+    "currency": "ج.م",
+    "kg": "كجم",
+    "error_title": "تعذّر تحميل البيانات",
+    "error_message": "حدث خطأ غير متوقع، حاول مرة أخرى.",
+    "offline_title": "لا يوجد اتصال بالإنترنت",
+    "offline_message": "تحقق من اتصالك ثم حاول مرة أخرى.",
+    "action_failed": "تعذّر إتمام العملية",
+    "back": "رجوع"
   },
   "auth": {
     "email": "البريد الإلكتروني",
@@ -37,7 +44,9 @@
     "login_successful": "تم تسجيل الدخول بنجاح",
     "welcome_back_courier": "مرحباً بك مجدداً أيها المندوب!",
     "login_failed_creds": "فشل تسجيل الدخول. يرجى التحقق من بياناتك.",
-    "demo_accounts": "حسابات تجريبية"
+    "demo_accounts": "حسابات تجريبية",
+    "show_password": "إظهار كلمة المرور",
+    "hide_password": "إخفاء كلمة المرور"
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -49,7 +58,12 @@
     "working_deliveries": "الطلبات الجارية",
     "estimated_time": "الوقت المتوقع: {{time}} دقيقة",
     "no_deliveries_assigned": "لا توجد طلبات معينة حالياً",
-    "go_online_to_start": "اتصل بالإنترنت لبدء استقبال الطلبات!"
+    "go_online_to_start": "اتصل بالإنترنت لبدء استقبال الطلبات!",
+    "you_are_online": "أنت متصل وتستقبل الطلبات",
+    "you_are_offline": "أنت غير متصل",
+    "your_stats": "أداؤك",
+    "delivered_total": "طلبات تم توصيلها",
+    "rating": "التقييم"
   },
   "couriers": {
     "availability": "الحالة",
@@ -120,21 +134,34 @@
     "cash_to_collect": "المبلغ المطلوب من العميل",
     "cash_collected": "المبلغ المحصل من العميل",
     "collect_reminder": "تأكد من تحصيل {{amount}} من العميل.",
-    "report_customer_problem": "الإبلاغ عن مشكلة مع العميل"
+    "report_customer_problem": "الإبلاغ عن مشكلة مع العميل",
+    "next_stop_pickup": "التالي: الاستلام من المتجر",
+    "next_stop_dropoff": "التالي: التسليم للعميل",
+    "directions": "الاتجاهات",
+    "reason_required": "اكتب سبب الإلغاء",
+    "open_task": "متابعة المهمة",
+    "current_task": "المهمة الحالية",
+    "other_active": "طلبات نشطة أخرى",
+    "items_count": "{{count}} منتج"
   },
   "earnings": {
     "title": "الأرباح",
-    "daily": "يومي",
-    "weekly": "أسبوعي",
-    "history": "سجل الطلبات",
-    "total_balance": "إجمالي الرصيد",
-    "this_week": "هذا الأسبوع",
-    "transactional_history": "سجل العمليات",
     "no_earnings_history": "لا يوجد سجل أرباح بعد",
-    "complete_deliveries_hint": "أكمل الطلبات لترى رصيدك ينمو!"
+    "complete_deliveries_hint": "أكمل الطلبات لترى رصيدك ينمو!",
+    "pending_title": "أرباح لم تُسوَّ بعد",
+    "pending_hint": "طلبات تم توصيلها ولم تُدرج في تسوية بعد",
+    "unsettled": "طلبات غير مسوّاة",
+    "delivery_fees": "أجرة التوصيل",
+    "cash_collected": "نقدية محصّلة لديك",
+    "net_payout": "صافي المستحق",
+    "negative_net_hint": "القيمة السالبة تعني أن النقدية المحصّلة لديك أكبر من أجرة التوصيل المستحقة لك.",
+    "settlement_history": "سجل التسويات",
+    "deliveries_count": "{{count}} طلب",
+    "status_paid": "تم الدفع",
+    "status_pending": "بانتظار الدفع"
   },
   "profile": {
-    "title": "الملف الشخصي",
+    "title": "حسابي",
     "vehicle": "نوع المركبة",
     "availability": "الحالة",
     "language": "اللغة",
@@ -143,11 +170,18 @@
     "vehicle_and_account": "المركبة والحساب",
     "phone_number": "رقم الهاتف",
     "app_settings": "إعدادات التطبيق",
-    "notifications": "التنبيهات",
-    "privacy_policy": "سياسة الخصوصية",
-    "enabled": "مفعل",
     "not_set": "غير محدد",
-    "version_text": "سيتي ماركت للمناديب v{{version}}"
+    "version_text": "الإصدار {{version}}",
+    "courier_type": "نوع الحساب",
+    "type_freelance": "مندوب حر",
+    "type_office": "مندوب مكتب",
+    "license_plate": "رقم اللوحة",
+    "my_ratings": "تقييماتي",
+    "account": "الحساب",
+    "logout_all_confirm_title": "تسجيل الخروج من كل الأجهزة؟",
+    "logout_all_confirm_message": "سيتم تسجيل خروجك من هذا الجهاز وكل الأجهزة الأخرى.",
+    "arabic": "العربية",
+    "english": "English"
   },
   "terms": {
     "title": "الشروط والأحكام",
@@ -204,7 +238,8 @@
     "delivery_fee": "الأجرة: {{amount}} ج.م",
     "pending_review": "حسابك قيد المراجعة. يمكنك استلام التوصيلات بعد موافقة الإدارة.",
     "suspended": "تم إيقاف حسابك. تواصل مع الدعم.",
-    "go_online": "فعّل حالتك من الرئيسية لرؤية التوصيلات القريبة."
+    "go_online": "فعّل حالتك من الرئيسية لرؤية التوصيلات القريبة.",
+    "fee_label": "الأجرة"
   },
   "signup": {
     "title": "انضم كمندوب",

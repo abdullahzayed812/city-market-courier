@@ -1,25 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Switch, RefreshControl, Pressable } from 'react-native';
 import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Switch,
-  RefreshControl,
-} from 'react-native';
-import { AppText as Text } from '@city-market/mobile-ui';
+  AppText as Text,
+  Button,
+  Card,
+  SectionHeader,
+  StatusBadge,
+  EmptyState,
+  LoadingState,
+  ForwardIcon,
+  apiErrorMessage,
+  palette,
+  radii,
+  space,
+} from '@city-market/mobile-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Bike,
-  Package,
-  MapPin,
-  ChevronRight,
-  User,
-  Star,
-  Clock,
-  CheckCircle2,
-} from 'lucide-react-native';
+import { Star, CircleCheck, Navigation, Store, MapPin, Banknote, Timer, Coffee, Briefcase } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,14 +23,107 @@ import Toast from 'react-native-toast-message';
 
 import { DeliveryService } from '../services/api/deliveryService';
 import { useAuth } from '../app/AuthContext';
-import { theme } from '../theme';
 import { useSocket } from '../app/SocketContext';
-import { EventType, DeliveryStatus } from '@city-market/shared';
+import { EventType, DeliveryStatus, Delivery } from '@city-market/shared';
 import { useAvailableJobs } from '../hooks/useAvailableJobs';
+import { useSlaCountdown } from '../hooks/useSlaCountdown';
+import { useFormat } from '../hooks/useFormat';
 import { JobCard } from '../components/deliveries/JobCard';
+import { DeliveryRow } from '../components/deliveries/DeliveryRow';
+import QueryError from '../components/common/QueryError';
+import {
+  itemsTotal,
+  nextStep,
+  openDirections,
+  shortOrderId,
+  statusLabelKey,
+  statusMeta,
+} from '../features/deliveries/deliveryHelpers';
 
 // How many open jobs the dashboard previews; the Jobs tab has the full list
 const DASHBOARD_JOBS = 3;
+
+/** Carrying goods first, then pickups by the nearest deadline. */
+const byUrgency = (a: Delivery, b: Delivery) => {
+  const carrying = (d: Delivery) => (d.status === DeliveryStatus.ASSIGNED ? 1 : 0);
+  if (carrying(a) !== carrying(b)) return carrying(a) - carrying(b);
+  const da = a.pickupDeadline ? new Date(a.pickupDeadline).getTime() : Infinity;
+  const db = b.pickupDeadline ? new Date(b.pickupDeadline).getTime() : Infinity;
+  return da - db;
+};
+
+const InlineCountdown = ({ deadline, label }: { deadline?: Date | string | null; label: string }) => {
+  const { remainingSeconds, isExpired, isWarning, formattedTime } = useSlaCountdown(deadline);
+  if (!deadline || isExpired || remainingSeconds <= 0) return null;
+  const fg = isWarning ? palette.error : palette.warning;
+  return (
+    <View style={[styles.countdown, { backgroundColor: isWarning ? palette.errorSoft : palette.warningSoft }]}>
+      <Timer size={18} color={fg} />
+      <Text variant="label" color={fg} style={styles.flex}>{label}</Text>
+      <Text variant="heading" color={fg} style={styles.tabular}>{formattedTime}</Text>
+    </View>
+  );
+};
+
+/** The one delivery the courier should be working on right now. */
+const CurrentTask = ({ delivery, onOpen }: { delivery: Delivery; onOpen: () => void }) => {
+  const { t } = useTranslation();
+  const { money } = useFormat();
+  const meta = statusMeta(delivery.status);
+  const step = nextStep(delivery.status);
+  const atPickup = delivery.status === DeliveryStatus.ASSIGNED;
+  const pickup = delivery.pickupLocations?.[0];
+  const toCollect = itemsTotal(delivery) + Number(delivery.deliveryFee || 0);
+  const directions = () =>
+    atPickup && pickup
+      ? openDirections(pickup.latitude, pickup.longitude, pickup.address)
+      : openDirections(delivery.deliveryLatitude, delivery.deliveryLongitude, delivery.deliveryAddress);
+
+  return (
+    <Card appearance="raised" style={styles.task}>
+      <View style={styles.rowBetween}>
+        <Text variant="title" color={palette.text}>{shortOrderId(delivery)}</Text>
+        <StatusBadge label={t(statusLabelKey(delivery.status))} tone={meta.tone} icon={meta.icon} />
+      </View>
+      {atPickup ? <InlineCountdown deadline={delivery.pickupDeadline} label={t('deliveries.pickup_before')} /> : null}
+
+      <Pressable onPress={onOpen} style={styles.stop} accessibilityRole="button">
+        <View style={[styles.stopIcon, atPickup ? styles.stopPickup : styles.stopDrop]}>
+          {atPickup ? <Store size={20} color={palette.primary} /> : <MapPin size={20} color={palette.accentText} />}
+        </View>
+        <View style={styles.flex}>
+          <Text variant="caption" color={palette.textMuted}>
+            {atPickup ? t('deliveries.next_stop_pickup') : t('deliveries.next_stop_dropoff')}
+          </Text>
+          <Text variant="subheading" color={palette.text} numberOfLines={2}>
+            {atPickup
+              ? (delivery.pickupLocations?.length ?? 0) > 1
+                ? t('deliveries.stores_count', { count: delivery.pickupLocations.length })
+                : pickup?.address ?? '—'
+              : delivery.deliveryAddress}
+          </Text>
+        </View>
+      </Pressable>
+
+      <View style={styles.cashRow}>
+        <Banknote size={20} color={palette.primary} />
+        <Text variant="label" color={palette.textSecondary} style={styles.flex}>{t('deliveries.cash_to_collect')}</Text>
+        <Text variant="heading" color={palette.primary} style={styles.tabular}>{money(toCollect)}</Text>
+      </View>
+
+      <View style={styles.taskActions}>
+        <Button label={t('deliveries.directions')} icon={Navigation} variant="outline" size="lg" onPress={directions} style={styles.flex} />
+        <Button
+          label={step ? t(step.labelKey) : t('deliveries.open_task')}
+          trailingIcon={ForwardIcon}
+          size="lg"
+          onPress={onOpen}
+          style={styles.flex}
+        />
+      </View>
+    </Card>
+  );
+};
 
 const DashboardScreen = ({ navigation }: any) => {
   const { t } = useTranslation();
@@ -42,7 +131,7 @@ const DashboardScreen = ({ navigation }: any) => {
   const queryClient = useQueryClient();
   const { socket } = useSocket();
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useQuery({
     queryKey: ['courierProfile'],
     queryFn: () => DeliveryService.getProfile(),
   });
@@ -51,6 +140,7 @@ const DashboardScreen = ({ navigation }: any) => {
     data: myDeliveries,
     isLoading: deliveriesLoading,
     isFetching: deliveriesFetching,
+    error: deliveriesError,
     refetch: refetchDeliveries,
   } = useQuery({
     queryKey: ['activeDeliveries'],
@@ -86,8 +176,8 @@ const DashboardScreen = ({ navigation }: any) => {
       queryClient.invalidateQueries({ queryKey: ['courierProfile'] });
     },
     // e.g. freelancer not approved yet, or a delivery still in progress
-    onError: (err: any) => {
-      Toast.show({ type: 'error', text1: err?.response?.data?.message || t('common.error') });
+    onError: (err: unknown) => {
+      Toast.show({ type: 'error', text1: t('common.action_failed'), text2: apiErrorMessage(err) });
     },
   });
 
@@ -123,363 +213,193 @@ const DashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  if (profileLoading || deliveriesLoading) {
+
+  const openDelivery = useCallback((id: string) => navigation.navigate('DeliveryDetails', { deliveryId: id }), [navigation]);
+  const sortedActive = useMemo(() => [...(activeDeliveries ?? [])].sort(byUrgency), [activeDeliveries]);
+
+  if (profileLoading || deliveriesLoading) return <LoadingState style={styles.container} />;
+  if (!profile && profileError) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <QueryError error={profileError} onRetry={() => { refetchProfile(); refetchDeliveries(); }} />
+      </SafeAreaView>
     );
   }
 
+  const [current, ...others] = sortedActive;
+  const online = !!profile?.isAvailable;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={deliveriesFetching}
             onRefresh={() => {
               refetchDeliveries();
+              refetchProfile();
               if (canWork) jobsQuery.refetch();
             }}
+            tintColor={palette.primary}
+            colors={[palette.primary]}
           />
         }
       >
-        {/* Header Section */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>{t('common.welcome')},</Text>
-            <Text style={styles.nameText}>
-              {profile?.fullName || user?.email}
+          <View style={styles.flex}>
+            <Text variant="caption" color={palette.textMuted}>{t('common.welcome')}</Text>
+            <Text variant="title" color={palette.text} numberOfLines={1}>{profile?.fullName || user?.email}</Text>
+          </View>
+        </View>
+
+        {/* Availability: large, explicit, one tap */}
+        <Pressable
+          onPress={toggleAvailability}
+          disabled={updateAvailabilityMutation.isPending}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: online, disabled: updateAvailabilityMutation.isPending }}
+          accessibilityLabel={t('couriers.availability')}
+          style={[styles.availability, online ? styles.availabilityOn : styles.availabilityOff]}
+        >
+          <View style={[styles.availabilityIcon, { backgroundColor: online ? palette.success : palette.neutral }]}>
+            {online ? <Briefcase size={20} color={palette.white} /> : <Coffee size={20} color={palette.white} />}
+          </View>
+          <View style={styles.flex}>
+            <Text variant="subheading" color={palette.text}>{online ? t('dashboard.online') : t('dashboard.offline')}</Text>
+            <Text variant="caption" color={palette.textSecondary}>
+              {online ? t('dashboard.you_are_online') : t('dashboard.go_online_to_start')}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <User color={theme.colors.primary} size={24} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Status Card */}
-        <View style={styles.statusCard}>
-          <View style={styles.statusInfo}>
-            <View style={styles.statusIconContainer}>
-              <Bike color={theme.colors.primary} size={24} />
-            </View>
-            <View>
-              <Text style={styles.statusLabel}>
-                {t('couriers.availability')}
-              </Text>
-              <Text style={styles.statusValue}>
-                {profile?.isAvailable
-                  ? t('common.active')
-                  : t('common.inactive')}
-              </Text>
-            </View>
-          </View>
           <Switch
-            value={profile?.isAvailable}
+            value={online}
             onValueChange={toggleAvailability}
-            trackColor={{ false: '#D1D5DB', true: theme.colors.primary + '33' }}
-            thumbColor={profile?.isAvailable ? theme.colors.primary : '#F3F4F6'}
+            disabled={updateAvailabilityMutation.isPending}
+            trackColor={{ true: palette.primaryMuted, false: palette.borderStrong }}
+            thumbColor={online ? palette.primary : palette.white}
           />
-        </View>
+        </Pressable>
 
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <TouchableOpacity style={styles.statBox} onPress={() => navigation.navigate('MyRatings')}>
-            <Star
-              color={theme.colors.warning}
-              size={20}
-              fill={theme.colors.warning}
+        {/* Current task first */}
+        {deliveriesError && !myDeliveries ? (
+          <QueryError error={deliveriesError} onRetry={() => refetchDeliveries()} compact />
+        ) : current ? (
+          <>
+            <SectionHeader title={t('deliveries.current_task')} style={styles.sectionTight} />
+            <CurrentTask delivery={current} onOpen={() => openDelivery(current.id)} />
+          </>
+        ) : (
+          <Card>
+            <EmptyState icon={Navigation} title={t('deliveries.no_active')} message={online ? undefined : t('dashboard.go_online_to_start')} compact />
+          </Card>
+        )}
+
+        {others.length > 0 ? (
+          <>
+            <SectionHeader title={t('deliveries.other_active')} style={styles.sectionGap} />
+            {others.map(d => <DeliveryRow key={d.id} item={d} onPress={openDelivery} />)}
+          </>
+        ) : null}
+
+        {/* Freelancers: nearest open jobs, take one right from here */}
+        {isFreelancer ? (
+          <>
+            <SectionHeader
+              title={t('jobs.title')}
+              actionLabel={jobs.length > DASHBOARD_JOBS ? t('dashboard.view_all') : undefined}
+              onAction={jobs.length > DASHBOARD_JOBS ? () => navigation.navigate('Jobs') : undefined}
+              style={styles.sectionGap}
             />
-            <Text style={styles.statValue}>
+            {jobs.length > 0 ? (
+              jobs.slice(0, DASHBOARD_JOBS).map(job => (
+                <JobCard key={job.id} job={job} claiming={claimMutation.isPending} onClaim={id => claimMutation.mutate(id)} />
+              ))
+            ) : (
+              <Card>
+                <Text variant="body" color={palette.textMuted} style={styles.center}>{jobsEmptyMessage()}</Text>
+              </Card>
+            )}
+          </>
+        ) : null}
+
+        <SectionHeader title={t('dashboard.your_stats')} style={styles.sectionGap} />
+        <View style={styles.stats}>
+          <Pressable
+            onPress={() => navigation.navigate('MyRatings')}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.stat, pressed && styles.pressed]}
+          >
+            <Star size={20} color={palette.accent} fill={palette.accent} />
+            <Text variant="heading" color={palette.text} style={styles.tabular}>
               {/* Average of customer ratings; "—" until the first one */}
               {profile?.ratingCount ? `${profile.rating.toFixed(1)} (${profile.ratingCount})` : '—'}
             </Text>
-            <Text style={styles.statLabel}>{t('couriers.rating')}</Text>
-          </TouchableOpacity>
-          <View style={styles.statBox}>
-            <CheckCircle2 color={theme.colors.success} size={20} />
-            <Text style={styles.statValue}>
-              {profile?.totalDeliveries || 0}
-            </Text>
-            <Text style={styles.statLabel}>{t('couriers.deliveries')}</Text>
+            <Text variant="caption" color={palette.textMuted}>{t('dashboard.rating')}</Text>
+          </Pressable>
+          <View style={styles.stat}>
+            <CircleCheck size={20} color={palette.success} />
+            <Text variant="heading" color={palette.text} style={styles.tabular}>{profile?.totalDeliveries || 0}</Text>
+            <Text variant="caption" color={palette.textMuted}>{t('dashboard.delivered_total')}</Text>
           </View>
         </View>
-
-        {/* Active Deliveries */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {t('deliveries.active_title')}
-          </Text>
-        </View>
-
-        <View style={styles.deliveriesContainer}>
-          {(activeDeliveries?.length ?? 0) > 0 ? (
-            activeDeliveries?.map((delivery: any) => (
-              <TouchableOpacity
-                key={delivery.id}
-                style={styles.deliveryCard}
-                onPress={() => navigation.navigate('DeliveryDetails', { deliveryId: delivery.id })}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.orderInfo}>
-                    <Package size={18} color={theme.colors.primary} />
-                    <Text style={styles.orderId}>
-                      #{delivery.customerOrderId.slice(-6)}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: getStatusColor(delivery.status) + '15',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: getStatusColor(delivery.status) },
-                      ]}
-                    >
-                      {t(`deliveries.status_${delivery.status.toLowerCase()}`)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.locationInfo}>
-                  <View style={styles.locationItem}>
-                    <View style={styles.dot} />
-                    <View style={styles.locationDetails}>
-                      <Text style={styles.locationLabel}>
-                        {t('deliveries.pickup')}
-                      </Text>
-                      {delivery?.pickupLocations?.map((pl: any) => (
-                        <Text
-                          key={pl.id}
-                          style={styles.addressText}
-                          numberOfLines={1}
-                        >
-                          {pl.address}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={[styles.locationItem, { marginTop: 12 }]}>
-                    <MapPin size={16} color={theme.colors.error} />
-                    <View style={styles.locationDetails}>
-                      <Text style={styles.locationLabel}>
-                        {t('deliveries.destination')}
-                      </Text>
-                      <Text style={styles.addressText} numberOfLines={1}>
-                        {delivery.deliveryAddress}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                  <View style={styles.timeInfo}>
-                    <Clock size={14} color={theme.colors.textMuted} />
-                    <Text style={styles.timeText}>
-                      {new Date(delivery.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </View>
-                  <ChevronRight size={20} color={theme.colors.primary} />
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Package
-                size={48}
-                color={theme.colors.textMuted}
-                style={{ opacity: 0.3 }}
-              />
-              <Text style={styles.emptyText}>{t('deliveries.no_active')}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Freelancers: nearest open jobs, take one right from here */}
-        {isFreelancer && (
-          <>
-            <View style={[styles.sectionHeader, styles.jobsHeader]}>
-              <Text style={styles.sectionTitle}>{t('jobs.title')}</Text>
-              {jobs.length > DASHBOARD_JOBS && (
-                <TouchableOpacity onPress={() => navigation.navigate('Jobs')}>
-                  <Text style={styles.seeAll}>{t('dashboard.view_all')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            {jobs.length > 0 ? (
-              jobs
-                .slice(0, DASHBOARD_JOBS)
-                .map(job => (
-                  <JobCard key={job.id} job={job} claiming={claimMutation.isPending} onClaim={id => claimMutation.mutate(id)} />
-                ))
-            ) : (
-              <Text style={styles.jobsEmpty}>{jobsEmptyMessage()}</Text>
-            )}
-          </>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const getStatusColor = (status: DeliveryStatus) => {
-  switch (status) {
-    case DeliveryStatus.PENDING:
-      return '#FF9500';
-    case DeliveryStatus.ASSIGNED:
-      return theme.colors.primary;
-    case DeliveryStatus.PICKED_UP:
-      return '#5856D6';
-    case DeliveryStatus.ON_THE_WAY:
-      return theme.colors.accent;
-    case DeliveryStatus.DELIVERED:
-      return theme.colors.success;
-    default:
-      return theme.colors.textMuted;
-  }
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { padding: 20 },
-  header: {
+  container: { flex: 1, backgroundColor: palette.background },
+  content: { padding: space.lg, gap: space.md, paddingBottom: space.huge },
+  flex: { flex: 1 },
+  center: { textAlign: 'center' },
+  tabular: { fontVariant: ['tabular-nums'] },
+  pressed: { opacity: 0.85 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  sectionTight: { marginTop: space.sm, marginBottom: 0 },
+  sectionGap: { marginTop: space.md, marginBottom: 0 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  availability: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25,
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
   },
-  welcomeText: { fontSize: 14, color: theme.colors.textMuted },
-  nameText: { fontSize: 20, fontWeight: 'bold', color: theme.colors.text },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadows.soft,
-  },
-  statusCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 16,
+  availabilityOn: { borderColor: palette.success, backgroundColor: palette.successSoft },
+  availabilityOff: { borderColor: palette.borderStrong, backgroundColor: palette.surface },
+  availabilityIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  task: { gap: space.md, borderWidth: 1.5, borderColor: palette.primary },
+  countdown: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    ...theme.shadows.soft,
+    gap: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radii.md,
   },
-  statusInfo: { flexDirection: 'row', alignItems: 'center' },
-  statusIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary + '10',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  statusLabel: { fontSize: 12, color: theme.colors.textMuted },
-  statusValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  statsGrid: {
+  stop: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  stopIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  stopPickup: { backgroundColor: palette.primarySoft },
+  stopDrop: { backgroundColor: palette.accentSoft },
+  cashRow: {
     flexDirection: 'row',
-    gap: 15,
-    marginBottom: 25,
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.md,
+    borderRadius: radii.md,
+    backgroundColor: palette.primarySoft,
   },
-  statBox: {
+  taskActions: { flexDirection: 'row', gap: space.sm },
+  stats: { flexDirection: 'row', gap: space.sm },
+  stat: {
     flex: 1,
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    ...theme.shadows.soft,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: 8,
-  },
-  statLabel: { fontSize: 12, color: theme.colors.textMuted, marginTop: 2 },
-  sectionHeader: { marginBottom: 15 },
-  jobsHeader: { marginTop: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  seeAll: { color: theme.colors.primary, fontWeight: '600' },
-  jobsEmpty: { color: theme.colors.textMuted, textAlign: 'center', paddingVertical: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
-  deliveriesContainer: { gap: 15 },
-  deliveryCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 16,
-    ...theme.shadows.soft,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  orderInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  orderId: { fontWeight: 'bold', fontSize: 15, color: theme.colors.text },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, fontWeight: 'bold' },
-  locationInfo: { marginBottom: 15 },
-  locationItem: { flexDirection: 'row', gap: 12 },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-    marginTop: 6,
-  },
-  locationDetails: { flex: 1 },
-  locationLabel: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginBottom: 2,
-  },
-  addressText: { fontSize: 13, color: theme.colors.text, fontWeight: '500' },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  timeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  timeText: { fontSize: 12, color: theme.colors.textMuted },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderStyle: 'dashed',
-  },
-  emptyText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: theme.colors.textMuted,
+    gap: space.xs,
+    padding: space.lg,
+    borderRadius: radii.lg,
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderStrong,
   },
 });
 
